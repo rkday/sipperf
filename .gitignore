@@ -26,3 +26,14 @@
 *.exe
 *.out
 *.app
+sipperf
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+libre-prefix/
+
+# libre build files
+libre/build-x86_64/
