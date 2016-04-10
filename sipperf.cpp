@@ -8,8 +8,6 @@
 
 #include "sipua.hpp"
 
-static struct dnsc *dnsc = NULL;
-
 /* called when challenged for credentials */
 static int auth_handler(char **user, char **pass, const char *realm, void *arg);
 static void register_handler(int err, const struct sip_msg *msg, void *arg);
@@ -44,7 +42,7 @@ struct sip* get_sip_stack()
     if (glb_sip[idx] == NULL)
     {
         struct sa laddr;
-        sip_alloc(&glb_sip[idx], dnsc, 32, 32, 32,
+        sip_alloc(&glb_sip[idx], NULL, 32, 32, 32,
                     "ua demo v" VERSION " (" ARCH "/" OS ")",
                     exit_handler, NULL);
         // fetch local IP address
@@ -97,34 +95,13 @@ static void timer_fn(void* arg)
 
 int main(int argc, char *argv[])
 {
-    struct sa nsv[16];
-    uint32_t nsc;
     int err; /* errno return values */
-
-    /* enable coredumps to aid debugging */
-    (void)sys_coredump_set(true);
 
     /* initialize libre state */
     err = libre_init();
     fd_setsize(50000);
     if (err) {
         re_fprintf(stderr, "re init failed: %s\n", strerror(err));
-    }
-
-    nsc = ARRAY_SIZE(nsv);
-
-    /* fetch list of DNS server IP addresses */
-    err = dns_srv_get(NULL, 0, nsv, &nsc);
-    if (err) {
-        re_fprintf(stderr, "unable to get dns servers: %s\n",
-                   strerror(err));
-    }
-
-    /* create DNS client */
-    err = dnsc_alloc(&dnsc, NULL, nsv, nsc);
-    if (err) {
-        re_fprintf(stderr, "unable to create dns client: %s\n",
-                   strerror(err));
     }
 
     re_init_timer_heap();
@@ -139,7 +116,6 @@ int main(int argc, char *argv[])
             mem_deref(sip);
     }
     glb_sip.clear();
-    mem_deref(dnsc);
 
     /* free librar state */
     libre_close();
