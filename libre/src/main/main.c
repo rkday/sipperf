@@ -36,20 +36,22 @@
 #undef LIST_INIT
 #undef LIST_FOREACH
 #endif
+
 #include <re_types.h>
 #include <re_fmt.h>
 #include <re_mem.h>
 #include <re_mbuf.h>
 #include <re_list.h>
-#include <re_tmr.h>
-#include <re_main.h>
-#include "main.h"
+
 #ifdef HAVE_PTHREAD
 #define __USE_GNU 1
 #include <stdlib.h>
 #include <pthread.h>
 #endif
 
+#include <re_tmr.h>
+#include <re_main.h>
+#include "main.h"
 
 #define DEBUG_MODULE "main"
 #define DEBUG_LEVEL 5
@@ -100,7 +102,7 @@ struct re {
 	bool update;                 /**< File descriptor set need updating */
 	bool polling;                /**< Is polling flag                   */
 	int sig;                     /**< Last caught signal                */
-	struct list tmrl;            /**< List of timers                    */
+	heap_t* tmrl;            /**< List of timers                    */
 
 #ifdef HAVE_POLL
 	struct pollfd *fds;          /**< Event set for poll()              */
@@ -130,7 +132,7 @@ static struct re global_re = {
 	false,
 	false,
 	0,
-	LIST_INIT,
+	NULL,
 #ifdef HAVE_POLL
 	NULL,
 #endif
@@ -527,6 +529,7 @@ static void poll_close(struct re *re)
 
 	re->evlist = mem_deref(re->evlist);
 #endif
+    heap_free(re->tmrl);
 }
 
 
@@ -661,7 +664,7 @@ void fd_close(int fd)
  */
 static int fd_poll(struct re *re)
 {
-	const uint64_t to = tmr_next_timeout(&re->tmrl);
+	const uint64_t to = tmr_next_timeout(re->tmrl);
 	int i, n;
 #ifdef HAVE_SELECT
 	fd_set rfds, wfds, efds;
@@ -931,6 +934,11 @@ static void signal_handler(int sig)
 }
 #endif
 
+void re_init_timer_heap()
+{
+	struct re *re = re_get();
+    re->tmrl = heap_new();
+}
 
 /**
  * Main polling loop for async I/O events. This function will only return when
@@ -1003,7 +1011,7 @@ int re_main(re_signal_h *signalh)
 			break;
 		}
 
-		tmr_poll(&re->tmrl);
+		tmr_poll(re->tmrl);
 	}
 	re_unlock(re);
 
@@ -1230,8 +1238,8 @@ void re_set_mutex(void *mutexp)
  *
  * @note only used by tmr module
  */
-struct list *tmrl_get(void);
-struct list *tmrl_get(void)
+heap_t *tmrh_get(void);
+heap_t *tmrh_get(void)
 {
-	return &re_get()->tmrl;
+	return re_get()->tmrl;
 }

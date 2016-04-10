@@ -17,11 +17,10 @@
 #include <pthread.h>
 #endif
 #include <re_types.h>
-#include <re_list.h>
 #include <re_fmt.h>
+#include <re_list.h>
 #include <re_mem.h>
 #include <re_tmr.h>
-
 
 #define DEBUG_MODULE "tmr"
 #define DEBUG_LEVEL 5
@@ -37,26 +36,7 @@ enum {
 	MAX_BLOCKING = 100   /**< Maximum time spent in handler [ms] */
 };
 
-extern struct list *tmrl_get(void);
-
-
-static bool inspos_handler(struct le *le, void *arg)
-{
-	struct tmr *tmr = le->data;
-	const uint64_t now = *(uint64_t *)arg;
-
-	return tmr->jfs <= now;
-}
-
-
-static bool inspos_handler_0(struct le *le, void *arg)
-{
-	struct tmr *tmr = le->data;
-	const uint64_t now = *(uint64_t *)arg;
-
-	return tmr->jfs > now;
-}
-
+extern heap_t *tmrh_get(void);
 
 #if TMR_DEBUG
 static void call_handler(tmr_h *th, void *arg)
@@ -80,9 +60,9 @@ static void call_handler(tmr_h *th, void *arg)
 /**
  * Poll all timers in the current thread
  *
- * @param tmrl Timer list
+ * @param tmrh Timer heap
  */
-void tmr_poll(struct list *tmrl)
+void tmr_poll(heap_t *tmrh)
 {
 	const uint64_t jfs = tmr_jiffies();
 
@@ -91,7 +71,7 @@ void tmr_poll(struct list *tmrl)
 		tmr_h *th;
 		void *th_arg;
 
-		tmr = list_ledata(tmrl->head);
+		tmr = heap_peek(tmrh);
 
 		if (!tmr || (tmr->jfs > jfs)) {
 			break;
@@ -102,7 +82,7 @@ void tmr_poll(struct list *tmrl)
 
 		tmr->th = NULL;
 
-		list_unlink(&tmr->le);
+		heap_remove_item(tmrh, tmr);
 
 		if (!th)
 			continue;
@@ -151,16 +131,16 @@ uint64_t tmr_jiffies(void)
 /**
  * Get number of milliseconds until the next timer expires
  *
- * @param tmrl Timer-list
+ * @param tmrh Timer heap
  *
  * @return Number of [ms], or 0 if no active timers
  */
-uint64_t tmr_next_timeout(struct list *tmrl)
+uint64_t tmr_next_timeout(heap_t *tmrh)
 {
 	const uint64_t jif = tmr_jiffies();
 	const struct tmr *tmr;
 
-	tmr = list_ledata(tmrl->head);
+	tmr = heap_peek(tmrh);
 	if (!tmr)
 		return 0;
 
@@ -173,20 +153,21 @@ uint64_t tmr_next_timeout(struct list *tmrl)
 
 int tmr_status(struct re_printf *pf, void *unused)
 {
-	struct list *tmrl = tmrl_get();
+/*
+    struct list *tmrh = tmrl_get();
 	struct le *le;
 	uint32_t n;
 	int err;
 
 	(void)unused;
 
-	n = list_count(tmrl);
+	n = list_count(tmrh);
 	if (!n)
 		return 0;
 
 	err = re_hprintf(pf, "Timers (%u):\n", n);
 
-	for (le = tmrl->head; le; le = le->next) {
+	for (le = tmrh->head; le; le = le->next) {
 		const struct tmr *tmr = le->data;
 
 		err |= re_hprintf(pf, "  %p: th=%p expire=%llums\n",
@@ -198,6 +179,8 @@ int tmr_status(struct re_printf *pf, void *unused)
 		err |= re_hprintf(pf, "    (Dumped Timers: %u)\n", n);
 
 	return err;
+    */
+    return 0;
 }
 
 
@@ -206,7 +189,7 @@ int tmr_status(struct re_printf *pf, void *unused)
  */
 void tmr_debug(void)
 {
-	if (!list_isempty(tmrl_get()))
+	if (heap_count(tmrh_get()) > 0)
 		(void)re_fprintf(stderr, "%H", tmr_status, NULL);
 }
 
@@ -222,6 +205,7 @@ void tmr_init(struct tmr *tmr)
 		return;
 
 	memset(tmr, 0, sizeof(*tmr));
+    tmr->heap_idx = -1;
 }
 
 
@@ -235,14 +219,13 @@ void tmr_init(struct tmr *tmr)
  */
 void tmr_start(struct tmr *tmr, uint64_t delay, tmr_h *th, void *arg)
 {
-	struct list *tmrl = tmrl_get();
-	struct le *le;
+	heap_t *tmrh = tmrh_get();
 
 	if (!tmr)
 		return;
 
 	if (tmr->th) {
-		list_unlink(&tmr->le);
+		heap_remove_item(tmrh, tmr);
 	}
 
 	tmr->th  = th;
@@ -253,24 +236,7 @@ void tmr_start(struct tmr *tmr, uint64_t delay, tmr_h *th, void *arg)
 
 	tmr->jfs = delay + tmr_jiffies();
 
-	if (delay == 0) {
-		le = list_apply(tmrl, true, inspos_handler_0, &tmr->jfs);
-		if (le) {
-			list_insert_before(tmrl, le, &tmr->le, tmr);
-		}
-		else {
-			list_append(tmrl, &tmr->le, tmr);
-		}
-	}
-	else {
-		le = list_apply(tmrl, false, inspos_handler, &tmr->jfs);
-		if (le) {
-			list_insert_after(tmrl, le, &tmr->le, tmr);
-		}
-		else {
-			list_prepend(tmrl, &tmr->le, tmr);
-		}
-	}
+	heap_offer(tmrh, tmr);
 
 #ifdef HAVE_ACTSCHED
 	/* TODO: this is a hack. when a new timer is started we must reset

@@ -40,6 +40,7 @@ void  fd_debug(void);
 int   libre_init(void);
 void  libre_close(void);
 
+void re_init_timer_heap(void);
 int   re_main(re_signal_h *signalh);
 void  re_cancel(void);
 int   re_debug(struct re_printf *pf, void *unused);
