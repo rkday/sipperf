@@ -12,13 +12,21 @@ static struct dnsc *dnsc = NULL;
 /* called when challenged for credentials */
 static int auth_handler(char **user, char **pass, const char *realm, void *arg);
 static void register_handler(int err, const struct sip_msg *msg, void *arg);
-//static std::vector<struct sip*> glb_sip;                 /* SIP stack          */
-static struct sip* glb_sip;                 /* SIP stack          */
+static std::vector<struct sip*> glb_sip;                 /* SIP stack          */
+
+struct tmr base_timer;
+
+static int count = 0;
+static int sip_stacks = 0;
 
 /* called when all sip transactions are completed */
 static void exit_handler(void *arg)
 {
     (void)arg;
+
+    sip_stacks--;
+   if (sip_stacks == 0)
+       re_cancel();
 
     /* stop libre main loop */
 }
@@ -32,25 +40,25 @@ static void connect_handler(const struct sip_msg *msg, void *arg)
 
 static struct sip* get_sip_stack()
 {
-    /*
     static int idx = 0;
     glb_sip.resize(25);
     idx++;
-    idx = idx % 20 */;
-    if (glb_sip == NULL)
+    idx = idx % 20;
+    if (glb_sip[idx] == NULL)
     {
         struct sa laddr;
-        sip_alloc(&glb_sip, dnsc, 32, 32, 32,
+        sip_alloc(&glb_sip[idx], dnsc, 32, 32, 32,
                     "ua demo v" VERSION " (" ARCH "/" OS ")",
-                    NULL, NULL);
+                    exit_handler, NULL);
         // fetch local IP address
         net_default_source_addr_get(AF_INET, &laddr);
         // listen on random port 
         sa_set_port(&laddr, 0);
-        sip_transp_add(glb_sip, SIP_TRANSP_TCP, &laddr);
+        sip_transp_add(glb_sip[idx], SIP_TRANSP_TCP, &laddr);
+        sip_stacks++;
  
     }
-    return glb_sip;
+    return glb_sip[idx];
 }
 
 class SIPUE
@@ -74,10 +82,9 @@ public:
 
     void register_ue()
     {
-        re_thread_enter();
+        //re_thread_enter();
         my_sip = get_sip_stack();
 
-        printf("glb_sip refcount is %u\n", mem_nrefs(my_sip));
         sipsess_listen(&sess_sock, my_sip, 32, connect_handler, this);
         sipreg_register(&reg,
                         my_sip,
@@ -96,8 +103,7 @@ public:
                         this,
                         NULL,
                         NULL);
-        printf("glb_sip refcount is %u\n", mem_nrefs(my_sip));
-        re_thread_leave();
+        //re_thread_leave();
     }
  
 /* called when register responses are received */
@@ -134,6 +140,43 @@ private:
     std::string _username;
     std::string _password;
 };
+
+static std::vector<SIPUE*> ues;
+
+static void cleanup()
+{
+
+    for (SIPUE* a : ues)
+    {
+        delete a;
+    }
+
+    for (struct sip* sip : glb_sip)
+    {
+        if (sip)
+            sip_close(sip, false);
+    }
+}
+
+static void timer_fn(void* arg)
+{
+    printf("Called on timer!\n");
+    count++;
+    if (count < 10)
+    {
+        SIPUE* a = new SIPUE("sip:127.0.0.1",
+                             "sip:1234@127.0.0.1",
+                             "1234@127.0.0.1",
+                             "secret");
+        a->register_ue();
+        ues.push_back(a);
+        tmr_start(&base_timer, 1000, timer_fn, NULL);
+    }
+    else
+    {
+        cleanup();
+    }
+}
 
 
 static int auth_handler(char **user, char **pass, const char *realm, void *arg)
@@ -185,45 +228,18 @@ int main(int argc, char *argv[])
                    strerror(err));
     }
 
-    pthread_t re_thread;
-    pthread_create(&re_thread, NULL, lib_re_thread_func, NULL);
-    std::vector<SIPUE*> ues;
-    for (int i = 0; i < 1; i++)
-    {
-        struct timespec tp;
-        clock_gettime(CLOCK_MONOTONIC, &tp);
-        uint64_t start_us = (tp.tv_sec * 1000 * 1000) + (tp.tv_nsec / 1000);
-        for (int j = 0; j < 1; j++)
-        {
-            SIPUE* a = new SIPUE("sip:127.0.0.1",
-                                 "sip:1234@127.0.0.1",
-                                 "1234@127.0.0.1",
-                                 "secret");
-            a->register_ue();
-            ues.push_back(a);
-        }
-        clock_gettime(CLOCK_MONOTONIC, &tp);
-        uint64_t end_us = (tp.tv_sec * 1000 * 1000) + (tp.tv_nsec / 1000);
-        int64_t difference = end_us - start_us;
-        if (difference < 10000)
-        {
-            usleep(10000 - difference);
-        }
-    }
+    re_init_timer_heap();
+    tmr_init(&base_timer);
+    tmr_start(&base_timer, 0, timer_fn, NULL);
+    re_main(NULL);
     printf("End of loop\n");
-    
-    re_cancel();
-    pthread_join(re_thread, NULL);
-    sip_close(glb_sip, true);
-    for (SIPUE* a : ues)
-    {
-        delete a;
-    }
-
-out:
     /* clean up/free all state */
-    mem_deref(glb_sip);
-    glb_sip = NULL;
+    for (struct sip* sip : glb_sip)
+    {
+        if (sip)
+            mem_deref(sip);
+    }
+    glb_sip.clear();
     mem_deref(dnsc);
 
     /* free librar state */
@@ -231,7 +247,8 @@ out:
 
     /* check for memory leaks */
     //tmr_debug();
-    mem_debug();
+    //mem_debug();
 
+out:
     return err;
 }
