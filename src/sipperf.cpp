@@ -13,6 +13,8 @@
 struct tmr base_timer;
 
 static int count = 0;
+static uint64_t start_time = 0;
+static uint64_t tick = 0;
 static std::vector<SIPUE*> ues;
 
 static void cleanup()
@@ -29,10 +31,23 @@ static void cleanup()
 static void timer_fn(void* arg)
 {
 //    printf("Called on timer!\n");
+    uint64_t next_tick = start_time + (10*tick);
+    int diff = next_tick - tmr_jiffies();
+    if (diff > 0)
+    {
+        tmr_start(&base_timer, diff, timer_fn, NULL);
+        return;
+    }
+
+
     count++;
     if (count < 10000)
     {
-        tmr_start(&base_timer, 10, timer_fn, NULL);
+        tick++;
+        int ms_to_sleep = diff + 10;
+        if (ms_to_sleep > 0)
+            ms_to_sleep = 0;
+        tmr_start(&base_timer, ms_to_sleep, timer_fn, NULL);
         SIPUE* a = new SIPUE("sip:127.0.0.1",
                              "sip:1234@127.0.0.1",
                              "1234@127.0.0.1",
@@ -63,6 +78,7 @@ int main(int argc, char *argv[])
     tmr_start(&base_timer, 0, timer_fn, NULL);
 
     create_sip_stacks(20);
+    start_time = tmr_jiffies();
     re_main(NULL);
     printf("End of loop\n");
     
