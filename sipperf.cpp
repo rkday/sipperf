@@ -1,4 +1,3 @@
-
 #include <pthread.h>
 #include <string.h>
 #include <string>
@@ -6,6 +5,8 @@
 #include <unistd.h>
 #include <re.h>
 #include <vector>
+
+#include "sipua.hpp"
 
 static struct dnsc *dnsc = NULL;
 
@@ -33,12 +34,8 @@ static void exit_handler(void *arg)
 
 
 
-/* called upon incoming calls */
-static void connect_handler(const struct sip_msg *msg, void *arg)
-{
-}
 
-static struct sip* get_sip_stack()
+struct sip* get_sip_stack()
 {
     static int idx = 0;
     glb_sip.resize(25);
@@ -60,86 +57,6 @@ static struct sip* get_sip_stack()
     }
     return glb_sip[idx];
 }
-
-class SIPUE
-{
-public:
-    SIPUE(std::string registrar,
-          std::string uri,
-          std::string username,
-          std::string password):
-        _registrar(registrar),
-        _uri(uri),
-        _username(username),
-        _password(password)
-    {}
-
-    ~SIPUE()
-    {
-        mem_deref(sess_sock);
-        mem_deref(reg);
-    }
-
-    void register_ue()
-    {
-        //re_thread_enter();
-        my_sip = get_sip_stack();
-
-        sipsess_listen(&sess_sock, my_sip, 32, connect_handler, this);
-        sipreg_register(&reg,
-                        my_sip,
-                        _registrar.c_str(),
-                        _uri.c_str(),
-                        _uri.c_str(),
-                        300,
-                        "RKD",
-                        NULL,
-                        0,
-                        0,
-                        ::auth_handler,
-                        this,
-                        false,
-                        ::register_handler,
-                        this,
-                        NULL,
-                        NULL);
-        //re_thread_leave();
-    }
- 
-/* called when register responses are received */
-void register_handler(int err, const struct sip_msg *msg)
-{
-    if (err)
-        re_printf("register error: %s\n", strerror(err));
-    //else
-        //re_printf("register reply: %u %r\n", msg->scode, &msg->reason);
-}
-
- /* called when challenged for credentials */
- int auth_handler(char **user, char **pass, const char *realm)
-{
-    int err = 0;
-    (void)realm;
-
-    str_dup(user, _username.c_str());
-    str_dup(pass, _password.c_str());
-
-    return err;
-}
-
-  
-private:
-    struct sip *my_sip;            /* SIP session        */
-    struct sipsess *sess;            /* SIP session        */
-    struct sipsess_sock *sess_sock;  /* SIP session socket */
-    struct sipreg *reg;              /* SIP registration   */
-    struct sa laddr;
-
-    std::string _registrar;
-    std::string _uri;
-    std::string _username;
-    std::string _password;
-};
 
 static std::vector<SIPUE*> ues;
 
@@ -176,24 +93,6 @@ static void timer_fn(void* arg)
     {
         cleanup();
     }
-}
-
-
-static int auth_handler(char **user, char **pass, const char *realm, void *arg)
-{
-    return ((SIPUE*)arg)->auth_handler(user, pass, realm);
-}
-
-/* called when register responses are received */
-static void register_handler(int err, const struct sip_msg *msg, void *arg)
-{
-    ((SIPUE*)arg)->register_handler(err, msg);
-}
-
-void* lib_re_thread_func(void* arg)
-{
-    re_main(NULL);
-    printf("End of thread func\n");
 }
 
 int main(int argc, char *argv[])
@@ -247,7 +146,7 @@ int main(int argc, char *argv[])
 
     /* check for memory leaks */
     //tmr_debug();
-    //mem_debug();
+    mem_debug();
 
 out:
     return err;
