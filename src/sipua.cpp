@@ -6,6 +6,37 @@ static void connect_handler(const struct sip_msg *msg, void *arg)
 {
 }
 
+/* called when SIP progress (like 180 Ringing) responses are received */
+static void progress_handler(const struct sip_msg *msg, void *arg)
+{
+	(void)arg;
+
+	re_printf("session progress: %u %r\n", msg->scode, &msg->reason);
+}
+
+/* called when the session fails to connect or is terminated from peer */
+static void close_handler(int err, const struct sip_msg *msg, void *arg)
+{
+	(void)arg;
+
+	if (err)
+		re_printf("session closed: %d\n", err);
+	else
+		re_printf("session closed: %u %r\n", msg->scode, &msg->reason);
+}
+
+
+/* called when the session is established */
+static void establish_handler(const struct sip_msg *msg, void *arg)
+{
+	(void)msg;
+	(void)arg;
+
+	re_printf("session established\n");
+}
+
+
+
 SIPUE::~SIPUE()
 {
     mem_deref(sess_sock);
@@ -34,6 +65,29 @@ void SIPUE::register_ue()
                     this,
                     NULL,
                     NULL);
+}
+
+void SIPUE::call(std::string uri)
+{
+    const char* routes[1] = {"sip:127.0.0.1"};
+    struct mbuf *mb;
+    sdp_session_alloc(&sdp, &laddr);
+    sdp_media_add(&sdp_media, sdp, "audio", 4242, "RTP/AVP");
+    sdp_format_add(NULL, sdp_media, false, "0", "PCMU", 8000, 1,
+                   NULL, NULL, NULL, false, NULL);
+
+    /* create SDP offer */
+    sdp_encode(&mb, sdp, true);
+    int err = sipsess_connect(&sess, sess_sock, uri.c_str(), "RKD",
+                          _uri.c_str(), "RKD",
+                          routes, 1, "application/sdp", mb,
+                          static_auth_handler, this, false,
+                          NULL, NULL,
+                          progress_handler, establish_handler,
+                          NULL, NULL, close_handler, NULL, NULL);
+    printf("err: %d\n", err);
+    mem_deref(mb); /* free SDP buffer */
+
 }
 
 /* called when register responses are received */

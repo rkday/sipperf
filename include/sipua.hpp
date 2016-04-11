@@ -21,6 +21,7 @@ public:
     ~SIPUE();
 
     void register_ue();
+    void call(std::string uri);
 
 private:
     void register_handler(int err, const struct sip_msg *msg);
@@ -33,6 +34,8 @@ private:
     struct sipsess *sess;            /* SIP session        */
     struct sipsess_sock *sess_sock;  /* SIP session socket */
     struct sipreg *reg;              /* SIP registration   */
+    struct sdp_session* sdp;
+    struct sdp_media* sdp_media;
     struct sa laddr;
 
     std::string _registrar;

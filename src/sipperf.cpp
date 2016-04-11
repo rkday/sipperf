@@ -9,7 +9,7 @@
 #include "sipua.hpp"
 #include "stack.hpp"
 
-static uint64_t max_ues = 10000;
+static uint64_t max_ues = 100;
 static std::vector<SIPUE*> ues;
 
 class RepeatingTimer
@@ -141,7 +141,10 @@ bool InitialRegistrar::act()
 bool CallScheduler::act()
 {
     if (_registrar->everything_registered())
+    {
         printf("A calls B\n");
+        ues[0]->call("sip:1234@example.com");
+    }
     else
         printf("Still waiting...\n");
 
