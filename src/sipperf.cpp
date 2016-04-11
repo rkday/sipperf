@@ -9,58 +9,145 @@
 #include "sipua.hpp"
 #include "stack.hpp"
 
-
-struct tmr base_timer;
-
-static int count = 0;
-static uint64_t start_time = 0;
-static uint64_t tick = 0;
+static uint64_t max_ues = 10000;
 static std::vector<SIPUE*> ues;
+
+class RepeatingTimer
+{
+public:
+    RepeatingTimer(unsigned int ms_per_tick) :
+        _ms_per_tick(ms_per_tick),
+        _tick(0)
+    {};
+    virtual ~RepeatingTimer() = default;
+
+    void start();
+    static void static_timer_fn(void* arg);
+    void timer_fn();
+
+    uint64_t ms_since_start();
+
+    virtual bool act() = 0;
+
+protected:
+    unsigned int _ms_per_tick;
+    struct tmr _timer;
+    uint64_t _start_time;
+    uint64_t _tick;
+};
+
+class InitialRegistrar : public RepeatingTimer
+{
+public:
+    InitialRegistrar() : RepeatingTimer(10) {};
+
+    bool act();
+    bool everything_registered() { return _actual_ues_registered == max_ues; }
+private:
+    uint64_t _actual_ues_registered = 0;
+    double _registers_per_ms = 0.7;
+};
+
+class CallScheduler : public RepeatingTimer
+{
+public:
+    CallScheduler(InitialRegistrar* registrar) : RepeatingTimer(1000), _registrar(registrar) {};
+
+    bool act();
+private:
+    InitialRegistrar* _registrar;
+};
+
 
 static void cleanup()
 {
-
     for (SIPUE* a : ues)
     {
         delete a;
     }
-
+    
     close_sip_stacks(false);
 }
 
-static void timer_fn(void* arg)
+void RepeatingTimer::static_timer_fn(void* arg)
 {
-//    printf("Called on timer!\n");
-    uint64_t next_tick = start_time + (10*tick);
+    RepeatingTimer* t = static_cast<RepeatingTimer*>(arg);
+
+    t->timer_fn();
+}
+
+void RepeatingTimer::start()
+{
+    _start_time = tmr_jiffies();
+    tmr_init(&_timer);
+    tmr_start(&_timer, 0, static_timer_fn, this);
+}
+
+uint64_t RepeatingTimer::ms_since_start()
+{
+    return tmr_jiffies() - _start_time;
+}
+
+void RepeatingTimer::timer_fn()
+{
+    uint64_t next_tick = _start_time + (_ms_per_tick * _tick);
     int diff = next_tick - tmr_jiffies();
     if (diff > 0)
     {
-        tmr_start(&base_timer, diff, timer_fn, NULL);
+        //printf("A: Rescheduling %p for %d ms\n", this, diff);
+        tmr_start(&_timer, diff, static_timer_fn, this);
         return;
     }
 
+    _tick++;
+    bool reschedule_timer = act();
 
-    count++;
-    if (count < 10000)
+    if (reschedule_timer)
     {
-        tick++;
-        int ms_to_sleep = diff + 10;
-        if (ms_to_sleep > 0)
+        int ms_to_sleep = diff + _ms_per_tick;
+        if (ms_to_sleep < 0)
             ms_to_sleep = 0;
-        tmr_start(&base_timer, ms_to_sleep, timer_fn, NULL);
-        SIPUE* a = new SIPUE("sip:127.0.0.1",
+        //printf("B: Rescheduling %p for %d ms\n", this, ms_to_sleep);
+        tmr_start(&_timer, ms_to_sleep, static_timer_fn, this);
+    }
+}
+
+bool InitialRegistrar::act()
+{
+    if (_actual_ues_registered == max_ues)
+    {
+ //       cleanup();
+        return false;
+    }
+
+    uint64_t expected_ues_registered = ms_since_start() * _registers_per_ms;
+    expected_ues_registered = std::min(expected_ues_registered, max_ues);
+    int ues_to_register = expected_ues_registered - _actual_ues_registered;
+    //printf("%d UEs to register\n", ues_to_register);
+    for (int ii = 0; ii < ues_to_register; ii++)
+    {
+       SIPUE* a = new SIPUE("sip:127.0.0.1",
                              "sip:1234@127.0.0.1",
                              "1234@127.0.0.1",
                              "secret");
         a->register_ue();
         ues.push_back(a);
+        _actual_ues_registered++;
     }
-    else
-    {
-        cleanup();
-    }
+
+    return true;
 }
 
+bool CallScheduler::act()
+{
+    if (_registrar->everything_registered())
+        printf("A calls B\n");
+    else
+        printf("Still waiting...\n");
+
+    return true;
+
+}
 int main(int argc, char *argv[])
 {
     int err; /* errno return values */
@@ -73,12 +160,15 @@ int main(int argc, char *argv[])
     }
 
     re_init_timer_heap();
+   
+    InitialRegistrar registering_timer;
+    CallScheduler call_scheduler(&registering_timer);
+
+    call_scheduler.start();
+    registering_timer.start();
     
-    tmr_init(&base_timer);
-    tmr_start(&base_timer, 0, timer_fn, NULL);
 
     create_sip_stacks(20);
-    start_time = tmr_jiffies();
     re_main(NULL);
     printf("End of loop\n");
     
