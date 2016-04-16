@@ -1,7 +1,7 @@
 SIPPerf
 
 Usage:
-  sipperf --target sip:1.2.3.4
+  sipperf --target sip:1.2.3.4 --rps=20
   sipperf --help
   sipperf --version
 
@@ -9,3 +9,4 @@ Options:
   -h --help          Show this screen.
   --version          Show version.
   --target=<sipuri>  Outbound proxy for traffic.
+  --rps=<n>          Registrations-per-second rate for initial REGISTERs.

@@ -6,48 +6,26 @@
 #include <re.h>
 #include <vector>
 
+#include "timer.hpp"
+#include "stats_displayer.hpp"
 #include "sipua.hpp"
 #include "stack.hpp"
 #include "csv.h"
 #include "docopt.h"
 
 static std::vector<SIPUE*> ues;
-
-class RepeatingTimer
-{
-public:
-    RepeatingTimer(unsigned int ms_per_tick) :
-        _ms_per_tick(ms_per_tick),
-        _tick(0)
-    {};
-    virtual ~RepeatingTimer() = default;
-
-    void start();
-    static void static_timer_fn(void* arg);
-    void timer_fn();
-
-    uint64_t ms_since_start();
-    double seconds_since_start();
-
-    virtual bool act() = 0;
-
-protected:
-    unsigned int _ms_per_tick;
-    struct tmr _timer;
-    uint64_t _start_time;
-    uint64_t _tick;
-};
-
+StatsDisplayer* stats_displayer;
+                        
 class InitialRegistrar : public RepeatingTimer
 {
 public:
-    InitialRegistrar() : RepeatingTimer(10) {};
+    InitialRegistrar(uint rps) : RepeatingTimer(10), _registers_per_sec(rps) {};
 
     bool act();
     bool everything_registered() { return _actual_ues_registered == ues.size(); }
 private:
     uint64_t _actual_ues_registered = 0;
-    double _registers_per_sec = 700;
+    int _registers_per_sec = 700;
 };
 
 class CallScheduler : public RepeatingTimer
@@ -70,56 +48,6 @@ static void cleanup()
     
     close_sip_stacks(false);
 }
-
-void RepeatingTimer::static_timer_fn(void* arg)
-{
-    RepeatingTimer* t = static_cast<RepeatingTimer*>(arg);
-
-    t->timer_fn();
-}
-
-void RepeatingTimer::start()
-{
-    _start_time = tmr_jiffies();
-    tmr_init(&_timer);
-    tmr_start(&_timer, 0, static_timer_fn, this);
-}
-
-uint64_t RepeatingTimer::ms_since_start()
-{
-    return tmr_jiffies() - _start_time;
-}
-
-double RepeatingTimer::seconds_since_start()
-{
-    return (double)ms_since_start() / 1000.0;
-}
-
-
-void RepeatingTimer::timer_fn()
-{
-    uint64_t next_tick = _start_time + (_ms_per_tick * _tick);
-    int diff = next_tick - tmr_jiffies();
-    if (diff > 0)
-    {
-        //printf("A: Rescheduling %p for %d ms\n", this, diff);
-        tmr_start(&_timer, diff, static_timer_fn, this);
-        return;
-    }
-
-    _tick++;
-    bool reschedule_timer = act();
-
-    if (reschedule_timer)
-    {
-        int ms_to_sleep = diff + _ms_per_tick;
-        if (ms_to_sleep < 0)
-            ms_to_sleep = 0;
-        //printf("B: Rescheduling %p for %d ms\n", this, ms_to_sleep);
-        tmr_start(&_timer, ms_to_sleep, static_timer_fn, this);
-    }
-}
-
 bool InitialRegistrar::act()
 {
     if (_actual_ues_registered == ues.size())
@@ -166,6 +94,16 @@ int main(int argc, char *argv[])
         printf("%s\n", help_message);
         exit(1);
     }
+    int rps;
+    if (args.rps != NULL)
+    {
+        rps = std::atoi(args.rps);
+    } else
+    {
+        printf("Defaulting to 10 RPS\n");
+        rps = 10;
+    }
+
     printf("%s\n", args.target);
 
 
@@ -193,9 +131,11 @@ int main(int argc, char *argv[])
 
     re_init_timer_heap();
    
-    InitialRegistrar registering_timer;
+    InitialRegistrar registering_timer(rps);
     CallScheduler call_scheduler(&registering_timer);
+    stats_displayer = new StatsDisplayer();
 
+    stats_displayer->start();
     call_scheduler.start();
     registering_timer.start();
     

@@ -1,4 +1,5 @@
 #include "sipua.hpp"
+#include "stats_displayer.hpp"
 #include "stack.hpp"
 
 /* called upon incoming calls */
@@ -62,7 +63,7 @@ void SIPUE::register_ue()
                     _registrar.c_str(),
                     _uri.c_str(),
                     _uri.c_str(),
-                    300,
+                    30,
                     "RKD",
                     NULL,
                     0,
@@ -102,10 +103,14 @@ void SIPUE::call(std::string uri)
 /* called when register responses are received */
 void SIPUE::register_handler(int err, const struct sip_msg *msg)
 {
-//    if (err)
-//        re_printf("register error: %s\n", strerror(err));
-    //else
-    re_printf("register reply: %u %r\n", msg->scode, &msg->reason);
+    if (msg->scode == 200)
+    {
+        stats_displayer->success++;
+    }
+    else
+    {
+        stats_displayer->fail++;
+    }
 }
 
 /* called when challenged for credentials */
