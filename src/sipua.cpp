@@ -8,41 +8,85 @@ void SIPUE::static_connect_handler(const struct sip_msg *msg, void *arg)
     SIPUE* ue = static_cast<SIPUE*>(arg);
     ue->connect_handler(msg);
 }
-
-void SIPUE::connect_handler(const struct sip_msg *msg)
-{
-	re_printf("connection attempt to %s\n", _uri.c_str());
-    (void)sip_treply(NULL, my_sip, msg, 486, "Busy Here");
-    return;
-}
-
 /* called when SIP progress (like 180 Ringing) responses are received */
 static void progress_handler(const struct sip_msg *msg, void *arg)
 {
 	(void)arg;
 
-	re_printf("session progress: %u %r\n", msg->scode, &msg->reason);
+	//re_printf("session progress: %u %r\n", msg->scode, &msg->reason);
 }
 
 /* called when the session fails to connect or is terminated from peer */
 static void close_handler(int err, const struct sip_msg *msg, void *arg)
 {
-	(void)arg;
+	SIPUE* ue = static_cast<SIPUE*>(arg);
 
 	if (err)
-		re_printf("session closed: %d\n", err);
+		re_printf("session closed for %s: %d\n", ue->uri().c_str(),  err);
 	else
 		re_printf("session closed: %u %r\n", msg->scode, &msg->reason);
 }
 
 
-/* called when the session is established */
-static void establish_handler(const struct sip_msg *msg, void *arg)
+static int answer_handler(const struct sip_msg *msg, void *arg)
 {
-	(void)msg;
-	(void)arg;
+    return 0;
+}
 
-	re_printf("session established\n");
+static int offer_handler(mbuf** m, const struct sip_msg *msg, void *arg)
+{
+    return 0;
+}
+
+/* called when the session is established */
+static void static_establish_handler(const struct sip_msg *msg, void *arg)
+{
+	SIPUE* ue = static_cast<SIPUE*>(arg);
+    ue->establish_handler(msg);
+}
+
+int bye_send_handler(enum sip_transp tp, const struct sa *src,
+                     const struct sa *dst, struct mbuf *mb, void *arg)
+{
+    printf("Sending %d-character BYE to %s...\n", mb->size, inet_ntoa(dst->u.in.sin_addr));
+    /*
+    char buf[2048] = {0};
+    mb->pos = 0;
+    mbuf_read_str(mb, buf, 300);
+    printf("%s\n", buf);
+    */
+    return 0;
+}
+
+void SIPUE::establish_handler(const struct sip_msg *msg)
+{
+	//re_printf("session established for %s\n", ue->uri().c_str());
+    stats_displayer->success_call++;
+    struct sip_dialog* dlg = sipsess_dialog(sess);
+    struct sip_request* bye;
+    int err = sip_drequestf(&bye, my_sip, false, "BYE", dlg, 10, NULL, bye_send_handler, NULL, this, "Content-Length: 0\r\n\r\n");
+    printf("err is %d\n", err);
+}
+
+
+void SIPUE::connect_handler(const struct sip_msg *msg)
+{
+	//re_printf("connection attempt to %s\n", _uri.c_str());
+    //(void)sip_treply(NULL, my_sip, msg, 486, "Busy Here");
+	int err = sipsess_accept(&sess, sess_sock, msg, 200, "OK",
+			     "RKD", "application/sdp", msg->mb,
+			     NULL, // auth_handler - we don't support non-REGISTER challenges
+                 NULL, // authentication handler argument
+                 false,
+			     offer_handler, // offer handler
+                 answer_handler, // answer handler
+			     static_establish_handler,
+                 NULL, // INFO handler
+                 NULL, // REFER handler
+			     close_handler,
+                 this,
+                 NULL); // extra headers
+    return;
 }
 
 
@@ -92,10 +136,9 @@ void SIPUE::call(std::string uri)
                           _uri.c_str(), "RKD",
                           routes, 1, "application/sdp", mb,
                           static_auth_handler, this, false,
-                          NULL, NULL,
-                          progress_handler, establish_handler,
-                          NULL, NULL, close_handler, NULL, NULL);
-    printf("err: %d\n", err);
+                          offer_handler, answer_handler,
+                          progress_handler, static_establish_handler,
+                          NULL, NULL, close_handler, this, NULL);
     mem_deref(mb); /* free SDP buffer */
 
 }
@@ -105,11 +148,11 @@ void SIPUE::register_handler(int err, const struct sip_msg *msg)
 {
     if (msg->scode == 200)
     {
-        stats_displayer->success++;
+        stats_displayer->success_reg++;
     }
     else
     {
-        stats_displayer->fail++;
+        stats_displayer->fail_reg++;
     }
 }
 

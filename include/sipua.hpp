@@ -25,6 +25,7 @@ public:
 
     std::string uri() { return _uri; };
 
+    void establish_handler(const struct sip_msg *msg);
 private:
     void register_handler(int err, const struct sip_msg *msg);
     int auth_handler(char **user, char **pass, const char *realm);

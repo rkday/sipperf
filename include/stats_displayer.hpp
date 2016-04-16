@@ -9,12 +9,15 @@ public:
     StatsDisplayer(): RepeatingTimer(1000) {};
     bool act()
     {
-        printf("%u successful registers, %u failed registers\n", success, fail);
+        printf("%u successful registers\n", success_reg);
+        printf("%u failed registers\n", fail_reg);
+        printf("%u calls successfully set up\n", success_call);
         return true;
     }
 
-    uint32_t success;
-    uint32_t fail;
+    uint32_t success_reg = 0;
+    uint32_t success_call = 0;
+    uint32_t fail_reg = 0;
 
 };
  

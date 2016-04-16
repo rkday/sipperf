@@ -11,11 +11,16 @@ static void exit_handler(void *arg);
 
 void create_sip_stacks(int how_many)
 {
+	struct sa nsv[16];
+	struct dnsc *dnsc = NULL;
+	uint32_t nsc = ARRAY_SIZE(nsv);
+	dns_srv_get(NULL, 0, nsv, &nsc);
+	dnsc_alloc(&dnsc, NULL, nsv, nsc);
     for (int i = 0; i < how_many; i++)
     {
         struct sip* sip;
         struct sa laddr;
-        sip_alloc(&sip, NULL, 32, 32, 32,
+        sip_alloc(&sip, dnsc, 32, 32, 32,
                     "ua demo v" VERSION " (" ARCH "/" OS ")",
                     exit_handler, NULL);
 

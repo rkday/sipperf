@@ -31,7 +31,7 @@ private:
 class CallScheduler : public RepeatingTimer
 {
 public:
-    CallScheduler(InitialRegistrar* registrar) : RepeatingTimer(1000), _registrar(registrar) {};
+    CallScheduler(InitialRegistrar* registrar) : RepeatingTimer(3000), _registrar(registrar) {};
 
     bool act();
 private:
@@ -78,9 +78,8 @@ bool CallScheduler::act()
         SIPUE* callee = ues[1];
         printf("%s calls %s\n", caller->uri().c_str(), callee->uri().c_str());
         caller->call(callee->uri());
+        return false;
     }
-    else
-        printf("Still waiting...\n");
 
     return true;
 

@@ -37,3 +37,7 @@ libre-prefix/
 
 # libre build files
 libre/build-x86_64/
+
+tags
+
+include/docopt.h
