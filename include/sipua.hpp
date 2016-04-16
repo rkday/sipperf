@@ -30,10 +30,18 @@ private:
     void register_handler(int err, const struct sip_msg *msg);
     int auth_handler(char **user, char **pass, const char *realm);
     void connect_handler(const struct sip_msg *msg);
+    void progress_handler(const struct sip_msg *msg);
+    void close_handler(int err, const struct sip_msg *msg);
 
+    static void static_progress_handler(const struct sip_msg *msg, void *arg);
+    static void static_establish_handler(const struct sip_msg *msg, void *arg);
     static void static_register_handler(int err, const struct sip_msg *msg, void* arg);
     static int static_auth_handler(char **user, char **pass, const char *realm, void* arg);
     static void static_connect_handler(const struct sip_msg *msg, void *arg);
+    static void static_close_handler(int err, const struct sip_msg *msg, void *arg);
+
+    static int answer_handler(const struct sip_msg *msg, void *arg);
+    static int offer_handler(mbuf** m, const struct sip_msg *msg, void *arg);
 
     struct sip *my_sip;            /* SIP session        */
     struct sipsess *sess;            /* SIP session        */
