@@ -1,0 +1,11 @@
+SIPPerf
+
+Usage:
+  sipperf --target sip:1.2.3.4
+  sipperf --help
+  sipperf --version
+
+Options:
+  -h --help          Show this screen.
+  --version          Show version.
+  --target=<sipuri>  Outbound proxy for traffic.

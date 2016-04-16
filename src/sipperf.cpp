@@ -8,8 +8,9 @@
 
 #include "sipua.hpp"
 #include "stack.hpp"
+#include "csv.h"
+#include "docopt.h"
 
-static uint64_t max_ues = 100;
 static std::vector<SIPUE*> ues;
 
 class RepeatingTimer
@@ -26,6 +27,7 @@ public:
     void timer_fn();
 
     uint64_t ms_since_start();
+    double seconds_since_start();
 
     virtual bool act() = 0;
 
@@ -42,10 +44,10 @@ public:
     InitialRegistrar() : RepeatingTimer(10) {};
 
     bool act();
-    bool everything_registered() { return _actual_ues_registered == max_ues; }
+    bool everything_registered() { return _actual_ues_registered == ues.size(); }
 private:
     uint64_t _actual_ues_registered = 0;
-    double _registers_per_ms = 0.7;
+    double _registers_per_sec = 700;
 };
 
 class CallScheduler : public RepeatingTimer
@@ -88,6 +90,12 @@ uint64_t RepeatingTimer::ms_since_start()
     return tmr_jiffies() - _start_time;
 }
 
+double RepeatingTimer::seconds_since_start()
+{
+    return (double)ms_since_start() / 1000.0;
+}
+
+
 void RepeatingTimer::timer_fn()
 {
     uint64_t next_tick = _start_time + (_ms_per_tick * _tick);
@@ -114,24 +122,20 @@ void RepeatingTimer::timer_fn()
 
 bool InitialRegistrar::act()
 {
-    if (_actual_ues_registered == max_ues)
+    if (_actual_ues_registered == ues.size())
     {
  //       cleanup();
         return false;
     }
 
-    uint64_t expected_ues_registered = ms_since_start() * _registers_per_ms;
-    expected_ues_registered = std::min(expected_ues_registered, max_ues);
+    uint64_t expected_ues_registered = seconds_since_start() * _registers_per_sec;
+    expected_ues_registered = std::min(expected_ues_registered, ues.size());
     int ues_to_register = expected_ues_registered - _actual_ues_registered;
     //printf("%d UEs to register\n", ues_to_register);
     for (int ii = 0; ii < ues_to_register; ii++)
     {
-       SIPUE* a = new SIPUE("sip:127.0.0.1",
-                             "sip:1234@127.0.0.1",
-                             "1234@127.0.0.1",
-                             "secret");
+        SIPUE* a = ues[_actual_ues_registered];
         a->register_ue();
-        ues.push_back(a);
         _actual_ues_registered++;
     }
 
@@ -142,8 +146,10 @@ bool CallScheduler::act()
 {
     if (_registrar->everything_registered())
     {
-        printf("A calls B\n");
-        ues[0]->call("sip:1234@example.com");
+        SIPUE* caller = ues[0];
+        SIPUE* callee = ues[1];
+        printf("%s calls %s\n", caller->uri().c_str(), callee->uri().c_str());
+        caller->call(callee->uri());
     }
     else
         printf("Still waiting...\n");
@@ -153,7 +159,30 @@ bool CallScheduler::act()
 }
 int main(int argc, char *argv[])
 {
+    DocoptArgs args = docopt(argc, argv, /* help */ 1, /* version */ "0.01");
+    if (args.target == NULL)
+    {
+        printf("--target option is mandatory\n");
+        printf("%s\n", help_message);
+        exit(1);
+    }
+    printf("%s\n", args.target);
+
+
     int err; /* errno return values */
+
+    io::CSVReader<3> in("users.csv");
+
+    std::string sip_uri, username, password;
+
+    while (in.read_row(sip_uri, username, password))
+    {
+       SIPUE* a = new SIPUE(args.target,
+                             sip_uri,
+                             username,
+                             password);
+        ues.push_back(a);
+    }
 
     /* initialize libre state */
     err = libre_init();

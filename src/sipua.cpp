@@ -2,8 +2,17 @@
 #include "stack.hpp"
 
 /* called upon incoming calls */
-static void connect_handler(const struct sip_msg *msg, void *arg)
+void SIPUE::static_connect_handler(const struct sip_msg *msg, void *arg)
 {
+    SIPUE* ue = static_cast<SIPUE*>(arg);
+    ue->connect_handler(msg);
+}
+
+void SIPUE::connect_handler(const struct sip_msg *msg)
+{
+	re_printf("connection attempt to %s\n", _uri.c_str());
+    (void)sip_treply(NULL, my_sip, msg, 486, "Busy Here");
+    return;
 }
 
 /* called when SIP progress (like 180 Ringing) responses are received */
@@ -47,7 +56,7 @@ void SIPUE::register_ue()
 {
     my_sip = get_sip_stack();
 
-    sipsess_listen(&sess_sock, my_sip, 32, connect_handler, this);
+    sipsess_listen(&sess_sock, my_sip, 32, static_connect_handler, this);
     sipreg_register(&reg,
                     my_sip,
                     _registrar.c_str(),
@@ -69,7 +78,7 @@ void SIPUE::register_ue()
 
 void SIPUE::call(std::string uri)
 {
-    const char* routes[1] = {"sip:127.0.0.1"};
+    const char* routes[1] = {_registrar.c_str()};
     struct mbuf *mb;
     sdp_session_alloc(&sdp, &laddr);
     sdp_media_add(&sdp_media, sdp, "audio", 4242, "RTP/AVP");
@@ -96,7 +105,7 @@ void SIPUE::register_handler(int err, const struct sip_msg *msg)
 //    if (err)
 //        re_printf("register error: %s\n", strerror(err));
     //else
-    //re_printf("register reply: %u %r\n", msg->scode, &msg->reason);
+    re_printf("register reply: %u %r\n", msg->scode, &msg->reason);
 }
 
 /* called when challenged for credentials */

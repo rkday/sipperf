@@ -1,0 +1,3 @@
+[submodule "docopt.c"]
+	path = docopt.c
+	url = git@github.com:docopt/docopt.c.git
