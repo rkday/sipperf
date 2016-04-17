@@ -467,7 +467,6 @@ static int media_encode(const struct sdp_media *m, struct mbuf *mb, bool offer)
  */
 int sdp_encode(struct mbuf **mbp, struct sdp_session *sess, bool offer)
 {
-    printf("Value of sess is %p\n", sess);
 	const int ipver = sa_af(&sess->laddr) == AF_INET ? 4 : 6;
 	enum sdp_bandwidth i;
 	struct mbuf *mb;

@@ -24,7 +24,7 @@ void SIPUE::register_ue() {
                     _registrar.c_str(),
                     _uri.c_str(),
                     _uri.c_str(),
-                    30,
+                    300,
                     _name.c_str(),
                     NULL,
                     0,
@@ -52,7 +52,7 @@ int SIPUE::static_auth_handler(char **user, char **pass, const char *realm, void
 
 /* called when register responses are received */
 void SIPUE::register_handler(int err, const struct sip_msg *msg) {
-    if (msg->scode == 200) {
+    if (msg && msg->scode == 200) {
         stats_displayer->success_reg++;
         UAManager::get_instance()->mark_ua_registered(this);
     } else {
@@ -161,10 +161,11 @@ void SIPUE::static_establish_handler(const struct sip_msg *msg, void *arg) {
 /* called when the session fails to connect or is terminated from peer */
 void SIPUE::close_handler(int err, const struct sip_msg *msg) {
     UAManager::get_instance()->mark_ua_not_in_call(this);
-    if (err)
-        re_printf("session closed for %s: %d\n", _uri.c_str(),  err);
-    else
-        re_printf("session closed: %u %r\n", msg->scode, &msg->reason);
+    if (err != ECONNRESET)
+        stats_displayer->failed_call++;
+//        re_printf("session closed for %s: %d\n", _uri.c_str(),  err);
+ //   else
+  //      re_printf("session closed: %u %r\n", msg->scode, &msg->reason);
     mem_deref(sess);
     sess = NULL;
 }

@@ -16,6 +16,10 @@
 
 static std::vector<SIPUE*> ues;
 StatsDisplayer* stats_displayer;
+
+class CallScheduler;
+
+static CallScheduler* call_scheduler;
                         
 class InitialRegistrar : public RepeatingTimer
 {
@@ -32,17 +36,18 @@ private:
 class CallScheduler : public RepeatingTimer
 {
 public:
-    CallScheduler(InitialRegistrar* registrar) : RepeatingTimer(500), _registrar(registrar) {};
+    CallScheduler() : RepeatingTimer(10) {};
 
     bool act();
 private:
-    InitialRegistrar* _registrar;
+    uint64_t _actual_calls = 0;
+    int _calls_per_sec = 5;
 };
 
 class Cleanup : public RepeatingTimer
 {
 public:
-    Cleanup() : RepeatingTimer(15000) {};
+    Cleanup() : RepeatingTimer(1800 * 1000) {};
 
     bool act();
 };
@@ -83,6 +88,7 @@ bool InitialRegistrar::act()
 {
     if (_actual_ues_registered == ues.size())
     {
+        call_scheduler->start();
  //       cleanup();
         return false;
     }
@@ -103,23 +109,26 @@ bool InitialRegistrar::act()
 
 bool CallScheduler::act()
 {
-    static int times = 0;
-    if (_registrar->everything_registered())
-    {
-        SIPUE* caller = UAManager::get_instance()->get_ua_free_for_call();
-        SIPUE* callee = UAManager::get_instance()->get_ua_free_for_call();
-        if (caller && callee) {
-        printf("%s calls %s\n", caller->uri().c_str(), callee->uri().c_str());
-        caller->call(callee->uri());
-        times++;
-        return (times < 3);
-//        return false;
-        } else {
-            printf("Not enough registered UEs to make call\n");
+        uint64_t expected_calls = seconds_since_start() * _calls_per_sec;
+        int calls_to_make = expected_calls - _actual_calls;
+        
+        for (int ii = 0; ii < calls_to_make; ii++)
+        {
+            SIPUE* caller = UAManager::get_instance()->get_ua_free_for_call();
+            SIPUE* callee = UAManager::get_instance()->get_ua_free_for_call();
+            if (caller && callee) {
+                printf("%s calls %s\n", caller->uri().c_str(), callee->uri().c_str());
+                caller->call(callee->uri());
+                _actual_calls++;
+            } else {
+                printf("Not enough registered UEs to make call\n");
+                UAManager::get_instance()->mark_ua_not_in_call(caller);
+                UAManager::get_instance()->mark_ua_not_in_call(callee);
+                break;
+            }
         }
-    }
 
-    return true;
+    return (_actual_calls < 5000);
 
 }
 int main(int argc, char *argv[])
@@ -169,12 +178,11 @@ int main(int argc, char *argv[])
     re_init_timer_heap();
    
     InitialRegistrar registering_timer(rps);
-    CallScheduler call_scheduler(&registering_timer);
+    call_scheduler = new CallScheduler();
     stats_displayer = new StatsDisplayer();
     Cleanup c;
 
     stats_displayer->start();
-    call_scheduler.start();
     registering_timer.start();
     c.start();
     
