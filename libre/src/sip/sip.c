@@ -22,6 +22,7 @@
 
 static void destructor(void *arg)
 {
+    printf("Calling SIP stack destructor\n");
 	struct sip *sip = arg;
 
 	if (sip->closing) {

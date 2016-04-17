@@ -20,6 +20,6 @@ add_custom_target(Docopt DEPENDS include/docopt.h)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -ggdb3 -Wall")
 
-add_executable(sipperf src/sipperf.cpp src/stack.cpp src/sipua.cpp src/timer.cpp)
+add_executable(sipperf src/sipperf.cpp src/stack.cpp src/sipua.cpp src/timer.cpp src/uamanager.cpp)
 add_dependencies(sipperf Docopt)
 target_link_libraries(sipperf re pthread crypto z resolv)

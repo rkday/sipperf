@@ -1,24 +1,36 @@
 #include "stack.hpp"
+#include "sipua.hpp"
+#include "uamanager.hpp"
 
 #include <vector>
 #include <stdint.h>
 #include <re.h>
+#include <utility>
 
-static std::vector<struct sip*> sip_stacks;
+static std::vector<std::pair<struct sip*, struct sipsess_sock*>> sip_stacks;
 static int active_sip_stacks = 0;
+static struct dnsc *dnsc = NULL;
 
 static void exit_handler(void *arg);
+
+static void static_connect_handler(const struct sip_msg *msg, void *arg) {
+    std::string name(msg->uri.user.p, msg->uri.user.l);
+    printf("Message is for %.*s\n", msg->uri.user.l, msg->uri.user.p);
+    SIPUE* ue = UAManager::get_instance()->get_ua_by_name(name);
+    ue->connect_handler(msg);
+}
+
 
 void create_sip_stacks(int how_many)
 {
 	struct sa nsv[16];
-	struct dnsc *dnsc = NULL;
 	uint32_t nsc = ARRAY_SIZE(nsv);
 	dns_srv_get(NULL, 0, nsv, &nsc);
 	dnsc_alloc(&dnsc, NULL, nsv, nsc);
     for (int i = 0; i < how_many; i++)
     {
         struct sip* sip;
+        struct sipsess_sock *sess_sock;
         struct sa laddr;
         sip_alloc(&sip, dnsc, 32, 32, 32,
                     "ua demo v" VERSION " (" ARCH "/" OS ")",
@@ -28,32 +40,36 @@ void create_sip_stacks(int how_many)
         net_default_source_addr_get(AF_INET, &laddr);
         sa_set_port(&laddr, 0);
         sip_transp_add(sip, SIP_TRANSP_TCP, &laddr);
+        sipsess_listen(&sess_sock, sip, 32, static_connect_handler, NULL);
 
-        sip_stacks.push_back(sip);
+        sip_stacks.push_back(std::make_pair(sip, sess_sock));
         active_sip_stacks++;
+        printf("Created SIP stack, it has %u references\n", mem_nrefs(sip));
     }
 }
 
 void close_sip_stacks(bool force)
 {
-    for (struct sip* sip : sip_stacks)
+    for (auto sip : sip_stacks)
     {
-        sip_close(sip, force);
+        sip_close(sip.first, force);
     }
-
 }
 
 void free_sip_stacks()
 {
-    for (struct sip* sip : sip_stacks)
+    for (auto sip : sip_stacks)
     {
-        mem_deref(sip);
+        printf("Deleting SIP stack, it has %u references\n", mem_nrefs(sip.first));
+        mem_deref(sip.first);
+        mem_deref(sip.second);
     }
 
     sip_stacks.clear();
+    mem_deref(dnsc);
 }
 
-struct sip* get_sip_stack()
+std::pair<struct sip*, struct sipsess_sock*> get_sip_stack()
 {
     static int counter = 0;
     counter++;
@@ -65,6 +81,7 @@ static void exit_handler(void *arg)
 {
     // All SIP transactions on this stack have finished
     active_sip_stacks--;
+    printf("exit_handler called, number of active SIP stacks is %d\n", active_sip_stacks);
     if (active_sip_stacks == 0)
     {
         // Stop the main loop when all SIP transactions end

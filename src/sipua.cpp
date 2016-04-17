@@ -1,9 +1,12 @@
 #include "sipua.hpp"
+#include "uamanager.hpp"
 #include "stats_displayer.hpp"
 #include "stack.hpp"
 
+
+uint64_t SIPUE::counter = 0;
+
 SIPUE::~SIPUE() {
-    mem_deref(sess_sock);
     mem_deref(reg);
 }
 
@@ -12,16 +15,17 @@ SIPUE::~SIPUE() {
 //
 
 void SIPUE::register_ue() {
-    my_sip = get_sip_stack();
+    auto stackinfo = get_sip_stack();
+    my_sip = stackinfo.first;
+    my_sess_sock = stackinfo.second;
 
-    sipsess_listen(&sess_sock, my_sip, 32, static_connect_handler, this);
     sipreg_register(&reg,
                     my_sip,
                     _registrar.c_str(),
                     _uri.c_str(),
                     _uri.c_str(),
                     30,
-                    "RKD",
+                    _name.c_str(),
                     NULL,
                     0,
                     0,
@@ -36,13 +40,10 @@ void SIPUE::register_ue() {
 
 /* called when challenged for credentials */
 int SIPUE::auth_handler(char **user, char **pass, const char *realm) {
-    int err = 0;
-    (void)realm;
-
     str_dup(user, _username.c_str());
     str_dup(pass, _password.c_str());
 
-    return err;
+    return 0;
 }
 
 int SIPUE::static_auth_handler(char **user, char **pass, const char *realm, void *arg) {
@@ -53,6 +54,7 @@ int SIPUE::static_auth_handler(char **user, char **pass, const char *realm, void
 void SIPUE::register_handler(int err, const struct sip_msg *msg) {
     if (msg->scode == 200) {
         stats_displayer->success_reg++;
+        UAManager::get_instance()->mark_ua_registered(this);
     } else {
         stats_displayer->fail_reg++;
     }
@@ -67,23 +69,30 @@ void SIPUE::static_register_handler(int err, const struct sip_msg *msg, void *ar
 //
 
 void SIPUE::call(std::string uri) {
+    caller = true;
+    // Use the registrar as an outbound proxy
     const char* routes[1] = {_registrar.c_str()};
+
+    // Set up some dummy SDP to look realistic
     struct mbuf *mb;
+    net_default_source_addr_get(AF_INET, &laddr);
+    sa_set_port(&laddr, 0);
     sdp_session_alloc(&sdp, &laddr);
     sdp_media_add(&sdp_media, sdp, "audio", 4242, "RTP/AVP");
     sdp_format_add(NULL, sdp_media, false, "0", "PCMU", 8000, 1,
                    NULL, NULL, NULL, false, NULL);
-
-    /* create SDP offer */
     sdp_encode(&mb, sdp, true);
-    int err = sipsess_connect(&sess, sess_sock, uri.c_str(), "RKD",
-                              _uri.c_str(), "RKD",
+
+    UAManager::get_instance()->mark_ua_in_call(this);
+    int err = sipsess_connect(&sess, my_sess_sock, uri.c_str(), _name.c_str(),
+                              _uri.c_str(), _name.c_str(),
                               routes, 1, "application/sdp", mb,
                               static_auth_handler, this, false,
                               offer_handler, answer_handler,
                               static_progress_handler, static_establish_handler,
                               NULL, NULL, static_close_handler, this, NULL);
-    mem_deref(mb); /* free SDP buffer */
+
+    mem_deref(mb);
 
 }
 
@@ -101,9 +110,12 @@ void SIPUE::static_progress_handler(const struct sip_msg *msg, void *arg) {
 //
 
 void SIPUE::connect_handler(const struct sip_msg *msg) {
+    caller = false;
     re_printf("connection attempt to %s\n", _uri.c_str());
-    int err = sipsess_accept(&sess, sess_sock, msg, 200, "OK",
-                             "RKD", "application/sdp", msg->mb,
+    UAManager::get_instance()->mark_ua_in_call(this);
+    //sip_treply(NULL, my_sip, msg, 486, "Busy Here");
+    int err = sipsess_accept(&sess, my_sess_sock, msg, 180, "Ringing",
+                             _name.c_str(), "application/sdp", NULL,
                              NULL, // auth_handler - we don't support non-REGISTER challenges
                              NULL, // authentication handler argument
                              false,
@@ -115,15 +127,10 @@ void SIPUE::connect_handler(const struct sip_msg *msg) {
                              static_close_handler,
                              this,
                              NULL); // extra headers
+    sipsess_answer(sess, 200, "OK", msg->mb, "");
     return;
 }
 
-
-void SIPUE::static_connect_handler(const struct sip_msg *msg, void *arg) {
-    printf("Message is for %.*s\n", msg->uri.user.l, msg->uri.user.p);
-    SIPUE* ue = static_cast<SIPUE*>(arg);
-    ue->connect_handler(msg);
-}
 
 //
 // Methods common to incoming and outgoing calls
@@ -132,10 +139,17 @@ void SIPUE::static_connect_handler(const struct sip_msg *msg, void *arg) {
 void SIPUE::establish_handler(const struct sip_msg *msg) {
     //re_printf("session established for %s\n", ue->uri().c_str());
     stats_displayer->success_call++;
-    struct sip_dialog* dlg = sipsess_dialog(sess);
-    struct sip_request* bye;
-    int err = sip_drequestf(&bye, my_sip, false, "BYE", dlg, 10, NULL, NULL, NULL, this, "Content-Length: 0\r\n\r\n");
-    printf("err is %d\n", err);
+    if (caller) {
+        struct sip_dialog* dlg = sipsess_dialog(sess);
+        struct sip_request* bye;
+        int err = sip_drequestf(NULL, my_sip, true, "BYE", dlg, 10, NULL, NULL, static_in_dialog_response_handler, this, "Content-Length: 0\r\n\r\n");
+        UAManager::get_instance()->mark_ua_not_in_call(this);
+        mem_deref(sess);
+        mem_deref(sdp);
+        sess = NULL;
+        sdp = NULL;
+        printf("err is %d\n", err);
+    }
 }
 
 /* called when the session is established */
@@ -146,16 +160,27 @@ void SIPUE::static_establish_handler(const struct sip_msg *msg, void *arg) {
 
 /* called when the session fails to connect or is terminated from peer */
 void SIPUE::close_handler(int err, const struct sip_msg *msg) {
+    UAManager::get_instance()->mark_ua_not_in_call(this);
     if (err)
         re_printf("session closed for %s: %d\n", _uri.c_str(),  err);
     else
         re_printf("session closed: %u %r\n", msg->scode, &msg->reason);
-
+    mem_deref(sess);
+    sess = NULL;
 }
 
 void SIPUE::static_close_handler(int err, const struct sip_msg *msg, void *arg) {
     SIPUE* ue = static_cast<SIPUE*>(arg);
     ue->close_handler(err, msg);
+}
+
+void SIPUE::in_dialog_response_handler(int err, const struct sip_msg *msg) {
+
+}
+
+void SIPUE::static_in_dialog_response_handler(int err, const struct sip_msg *msg, void *arg) {
+    SIPUE* ue = static_cast<SIPUE*>(arg);
+    ue->in_dialog_response_handler(err, msg);
 }
 
 

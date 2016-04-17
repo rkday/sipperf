@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "timer.hpp"
+#include "uamanager.hpp"
 #include "stats_displayer.hpp"
 #include "sipua.hpp"
 #include "stack.hpp"
@@ -31,23 +32,53 @@ private:
 class CallScheduler : public RepeatingTimer
 {
 public:
-    CallScheduler(InitialRegistrar* registrar) : RepeatingTimer(3000), _registrar(registrar) {};
+    CallScheduler(InitialRegistrar* registrar) : RepeatingTimer(500), _registrar(registrar) {};
 
     bool act();
 private:
     InitialRegistrar* _registrar;
 };
 
+class Cleanup : public RepeatingTimer
+{
+public:
+    Cleanup() : RepeatingTimer(15000) {};
+
+    bool act();
+};
+
 
 static void cleanup()
 {
-    for (SIPUE* a : ues)
-    {
-        delete a;
-    }
-    
-    close_sip_stacks(false);
+   
+
+    mem_debug();
 }
+
+
+bool Cleanup::act()
+{
+    static int times = 0;
+    printf("Cleanup running\n");
+    if (times == 1)
+    {
+        for (SIPUE* a : ues)
+        {
+            delete a;
+        }
+    } else if (times == 2)
+    {
+        close_sip_stacks(false);
+        free_sip_stacks();
+    }
+    else if (times == 10)
+    {
+        re_cancel();
+    }
+    times++;
+    return true;
+}
+
 bool InitialRegistrar::act()
 {
     if (_actual_ues_registered == ues.size())
@@ -72,13 +103,20 @@ bool InitialRegistrar::act()
 
 bool CallScheduler::act()
 {
+    static int times = 0;
     if (_registrar->everything_registered())
     {
-        SIPUE* caller = ues[0];
-        SIPUE* callee = ues[1];
+        SIPUE* caller = UAManager::get_instance()->get_ua_free_for_call();
+        SIPUE* callee = UAManager::get_instance()->get_ua_free_for_call();
+        if (caller && callee) {
         printf("%s calls %s\n", caller->uri().c_str(), callee->uri().c_str());
         caller->call(callee->uri());
-        return false;
+        times++;
+        return (times < 3);
+//        return false;
+        } else {
+            printf("Not enough registered UEs to make call\n");
+        }
     }
 
     return true;
@@ -133,22 +171,25 @@ int main(int argc, char *argv[])
     InitialRegistrar registering_timer(rps);
     CallScheduler call_scheduler(&registering_timer);
     stats_displayer = new StatsDisplayer();
+    Cleanup c;
 
     stats_displayer->start();
     call_scheduler.start();
     registering_timer.start();
+    c.start();
     
 
-    create_sip_stacks(20);
+    create_sip_stacks(1);
     re_main(NULL);
     printf("End of loop\n");
     
-    free_sip_stacks();
+    //free_sip_stacks();
     libre_close();
 
     /* check for memory leaks */
     //tmr_debug();
     mem_debug();
+    delete stats_displayer;
 
     return 0;
 }
