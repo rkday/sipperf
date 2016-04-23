@@ -1415,7 +1415,7 @@ public:
     }
 };
 /// @brief Operating System helper static class used internally. You should not use it.
-class OS : base::StaticClass {
+class EL_OS : base::StaticClass {
 public:
 #if ELPP_OS_WINDOWS
     /// @brief Gets environment variables for Windows based OS. 
@@ -1496,7 +1496,7 @@ public:
         if ((val == nullptr) || ((strcmp(val, "") == 0))) {
 #if ELPP_OS_UNIX && defined(ELPP_FORCE_ENV_VAR_FROM_BASH)
            // Try harder on unix-based systems
-            std::string valBash = base::utils::OS::getBashOutput(alternativeBashCommand);
+            std::string valBash = base::utils::EL_OS::getBashOutput(alternativeBashCommand);
             if (valBash.empty()) {
                 return std::string(defaultVal);
             } else {
@@ -1552,9 +1552,9 @@ extern bool s_termSupportsColor;
     namespace el {\
         namespace base {\
             namespace utils {\
-                std::string s_currentUser = el::base::utils::OS::currentUser(); \
-                std::string s_currentHost = el::base::utils::OS::currentHost(); \
-                bool s_termSupportsColor = el::base::utils::OS::termSupportsColor(); \
+                std::string s_currentUser = el::base::utils::EL_OS::currentUser(); \
+                std::string s_currentHost = el::base::utils::EL_OS::currentHost(); \
+                bool s_termSupportsColor = el::base::utils::EL_OS::termSupportsColor(); \
             }\
         }\
    }
@@ -3143,7 +3143,7 @@ private:
                 // We display bad file error from newFileStream()
                 ELPP_INTERNAL_ERROR("Setting [TO_FILE] of [" 
                     << LevelHelper::convertToString(level) << "] to FALSE", false);
-                setValue(level, false, &m_toFileMap);
+                setValue(level, (bool)false, &m_toFileMap);
             }
         };
         // If we dont have file conf for any level, create it for Level::Global first

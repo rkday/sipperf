@@ -23,4 +23,5 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -ggdb3 -Wall -fsanitize=undefined -fno-omit-fram
 
 add_executable(sipperf src/sipperf.cpp src/stack.cpp src/sipua.cpp src/timer.cpp src/uamanager.cpp)
 add_dependencies(sipperf Docopt)
+add_dependencies(sipperf libre)
 target_link_libraries(sipperf re pthread crypto z resolv)
