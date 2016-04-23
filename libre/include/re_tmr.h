@@ -173,3 +173,4 @@ void heap_remove_item(heap_t * hp, struct tmr *item);
 int heap_contains_item(const heap_t * hp, const struct tmr *item);
 
 
+int heap_status(heap_t* tmrh, struct re_printf *pf);

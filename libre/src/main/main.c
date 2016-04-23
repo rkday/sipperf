@@ -934,12 +934,6 @@ static void signal_handler(int sig)
 }
 #endif
 
-void re_init_timer_heap()
-{
-	struct re *re = re_get();
-    re->tmrl = heap_new();
-}
-
 /**
  * Main polling loop for async I/O events. This function will only return when
  * re_cancel() is called or an error occured.
@@ -966,6 +960,8 @@ int re_main(re_signal_h *signalh)
 		return EALREADY;
 	}
 
+    if (re->tmrl == NULL)
+        re->tmrl = heap_new();
 	err = poll_setup(re);
 	if (err)
 		goto out;
@@ -1241,5 +1237,8 @@ void re_set_mutex(void *mutexp)
 heap_t *tmrh_get(void);
 heap_t *tmrh_get(void)
 {
-	return re_get()->tmrl;
+	struct re *re = re_get();
+    if (re->tmrl == NULL)
+        re->tmrl = heap_new();
+	return re->tmrl;
 }

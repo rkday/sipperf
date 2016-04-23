@@ -26,9 +26,8 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-
-
 #include <re_tmr.h>
+#include <re_fmt.h>
 
 #include <stdio.h>
 #include <strings.h>
@@ -80,34 +79,34 @@ static int __parent(const int idx)
     return (idx - 1) / 2;
 }
 
-void dump_heap(const heap_t* h)
+int heap_status(heap_t* tmrh, struct re_printf *pf)
 {
-    printf("===\n");
-    for (int ii = 0; ii < h->count; ii++)
-    {
-        printf("Index %d (%d): parent %d, pointer %p, timeout %lu\n", ii, h->array[ii]->heap_idx, __parent(ii), h->array[ii], h->array[ii]->jfs);
-    }
-    printf("===\n");
-}
+	uint32_t n;
+	int err;
 
-void check_heap(const heap_t* h)
-{
-#if 0
-    dump_heap(h);
-    for (int ii = 1; ii < h->count; ii++)
-    {
-        uint64_t thiskey = h->array[ii]->jfs;
-        uint64_t parentkey = h->array[__parent(ii)]->jfs;
-        assert(parentkey <= thiskey);
-    }
-#endif
-}
+	n = tmrh->count;
+	if (!n)
+		return 0;
 
+	err = re_hprintf(pf, "Timers (%u):\n", n);
+
+	for (unsigned int ii = 0; ii < n; ii++) {
+		const struct tmr *tmr = tmrh->array[ii];
+
+		err |= re_hprintf(pf, "  %p: th=%p expire=%llums\n",
+				  tmr, tmr->th,
+				  (unsigned long long)tmr_get_expire(tmr));
+	}
+
+	if (n > 100)
+		err |= re_hprintf(pf, "    (Dumped Timers: %u)\n", n);
+
+	return err;
+}
 
 
 void heap_init(heap_t* h,
-               unsigned int size
-               )
+               unsigned int size)
 {
     h->size = size;
     h->count = 0;
@@ -226,7 +225,6 @@ static void __heap_offerx(heap_t * h, struct tmr* item)
 
     /* ensure heap properties */
     __pushup(h, h->count++);
-    check_heap(h);
 }
 
 int heap_offerx(heap_t * h, struct tmr *item)
@@ -261,7 +259,6 @@ struct tmr *heap_poll(heap_t * h)
     if (h->count > 1)
         __pushdown(h, 0);
 
-    check_heap(h);
     return item;
 }
 
@@ -307,7 +304,6 @@ void heap_remove_item(heap_t * h, struct tmr *item)
                 __pushup(h, idx);
         }
     }
-    check_heap(h);
 }
 
 int heap_contains_item(const heap_t * h, const struct tmr *item)

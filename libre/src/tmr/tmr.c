@@ -153,34 +153,9 @@ uint64_t tmr_next_timeout(heap_t *tmrh)
 
 int tmr_status(struct re_printf *pf, void *unused)
 {
-/*
-    struct list *tmrh = tmrl_get();
-	struct le *le;
-	uint32_t n;
-	int err;
-
-	(void)unused;
-
-	n = list_count(tmrh);
-	if (!n)
-		return 0;
-
-	err = re_hprintf(pf, "Timers (%u):\n", n);
-
-	for (le = tmrh->head; le; le = le->next) {
-		const struct tmr *tmr = le->data;
-
-		err |= re_hprintf(pf, "  %p: th=%p expire=%llums\n",
-				  tmr, tmr->th,
-				  (unsigned long long)tmr_get_expire(tmr));
-	}
-
-	if (n > 100)
-		err |= re_hprintf(pf, "    (Dumped Timers: %u)\n", n);
-
-	return err;
-    */
-    return 0;
+    (void)unused;
+    heap_t *tmrh = tmrh_get();
+    return heap_status(tmrh, pf);
 }
 
 

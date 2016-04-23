@@ -189,8 +189,6 @@ int main(int argc, char *argv[])
         re_fprintf(stderr, "re init failed: %s\n", strerror(err));
     }
 
-    re_init_timer_heap();
-   
     InitialRegistrar registering_timer(rps);
     call_scheduler = new CallScheduler();
     stats_displayer = new StatsDisplayer();
@@ -208,7 +206,7 @@ int main(int argc, char *argv[])
     libre_close();
 
     /* check for memory leaks */
-    //tmr_debug();
+    tmr_debug();
     mem_debug();
     delete stats_displayer;
 
