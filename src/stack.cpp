@@ -15,7 +15,6 @@ static void exit_handler(void *arg);
 
 static void static_connect_handler(const struct sip_msg *msg, void *arg) {
     std::string name(msg->uri.user.p, msg->uri.user.l);
-    printf("Message is for %.*s\n", msg->uri.user.l, msg->uri.user.p);
     SIPUE* ue = UAManager::get_instance()->get_ua_by_name(name);
     ue->connect_handler(msg);
 }
@@ -44,7 +43,6 @@ void create_sip_stacks(int how_many)
 
         sip_stacks.push_back(std::make_pair(sip, sess_sock));
         active_sip_stacks++;
-        printf("Created SIP stack, it has %u references\n", mem_nrefs(sip));
     }
 }
 
@@ -60,7 +58,6 @@ void free_sip_stacks()
 {
     for (auto sip : sip_stacks)
     {
-        printf("Deleting SIP stack, it has %u references\n", mem_nrefs(sip.first));
         mem_deref(sip.first);
         mem_deref(sip.second);
     }
