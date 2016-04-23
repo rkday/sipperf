@@ -13,6 +13,9 @@
 #include "stack.hpp"
 #include "csv.h"
 #include "docopt.h"
+#include "easylogging++.h"
+
+INITIALIZE_EASYLOGGINGPP
 
 static std::vector<SIPUE*> ues;
 StatsDisplayer* stats_displayer;
@@ -41,13 +44,13 @@ public:
     bool act();
 private:
     uint64_t _actual_calls = 0;
-    int _calls_per_sec = 5;
+    int _calls_per_sec = 1;
 };
 
 class Cleanup : public RepeatingTimer
 {
 public:
-    Cleanup() : RepeatingTimer(1800 * 1000) {};
+    Cleanup() : RepeatingTimer(45 * 1000) {};
 
     bool act();
 };
@@ -117,7 +120,6 @@ bool CallScheduler::act()
             SIPUE* caller = UAManager::get_instance()->get_ua_free_for_call();
             SIPUE* callee = UAManager::get_instance()->get_ua_free_for_call();
             if (caller && callee) {
-                printf("%s calls %s\n", caller->uri().c_str(), callee->uri().c_str());
                 caller->call(callee->uri());
                 _actual_calls++;
             } else {
@@ -128,7 +130,7 @@ bool CallScheduler::act()
             }
         }
 
-    return (_actual_calls < 5000);
+    return (_actual_calls < 20);
 
 }
 int main(int argc, char *argv[])
@@ -150,7 +152,9 @@ int main(int argc, char *argv[])
         rps = 10;
     }
 
-    printf("%s\n", args.target);
+    //el::Configurations conf("loggingconf.conf");
+    //el::Loggers::configureFromGlobal("loggingconf.conf");
+    LOG(INFO) << "Target is " << args.target;
 
 
     int err; /* errno return values */
@@ -187,7 +191,7 @@ int main(int argc, char *argv[])
     c.start();
     
 
-    create_sip_stacks(1);
+    create_sip_stacks(350);
     re_main(NULL);
     printf("End of loop\n");
     

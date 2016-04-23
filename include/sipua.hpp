@@ -16,7 +16,7 @@ public:
         _uri(uri),
         _username(username),
         _password(password),
-        _name("ue" + std::to_string(counter++))
+        _name(std::to_string(getpid()) + "-ue" + std::to_string(counter++))
     {}
 
     ~SIPUE();
@@ -26,6 +26,7 @@ public:
 
     std::string uri() { return _uri; };
     std::string name() { return _name; }
+    std::string get_cid();
 
     void establish_handler(const struct sip_msg *msg);
     void connect_handler(const struct sip_msg *msg);
