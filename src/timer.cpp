@@ -1,6 +1,11 @@
 #include "timer.hpp"
 #include <re.h>
 
+RepeatingTimer::RepeatingTimer(unsigned int interval_ms) :
+    _ms_per_tick(interval_ms),
+    _tick(0)
+{};
+
 void RepeatingTimer::static_timer_fn(void* arg)
 {
     RepeatingTimer* t = static_cast<RepeatingTimer*>(arg);

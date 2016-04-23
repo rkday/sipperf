@@ -5,6 +5,12 @@
 
 class SIPUE;
 
+/// Singleton class with a complete view of all UEs, including:
+//
+// - what ones are registered
+// - what ones are currently in calls
+// - what ones are free to make/receive calls
+// - what Contact addresses map to what user agent instances (for handling incoming calls)
 class UAManager {
 public:
     static UAManager* get_instance() { return &_instance;}
