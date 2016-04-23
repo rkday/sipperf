@@ -21,8 +21,10 @@ static std::vector<SIPUE*> ues;
 StatsDisplayer* stats_displayer;
 
 class CallScheduler;
+class Cleanup;
 
 static CallScheduler* call_scheduler;
+static Cleanup* cleanup_task;
                         
 class InitialRegistrar : public RepeatingTimer
 {
@@ -44,13 +46,13 @@ public:
     bool act();
 private:
     uint64_t _actual_calls = 0;
-    int _calls_per_sec = 1;
+    int _calls_per_sec = 30;
 };
 
 class Cleanup : public RepeatingTimer
 {
 public:
-    Cleanup() : RepeatingTimer(45 * 1000) {};
+    Cleanup() : RepeatingTimer(1000) {};
 
     bool act();
 };
@@ -79,7 +81,7 @@ bool Cleanup::act()
         close_sip_stacks(false);
         free_sip_stacks();
     }
-    else if (times == 10)
+    else if (times == 30)
     {
         re_cancel();
     }
@@ -130,7 +132,15 @@ bool CallScheduler::act()
             }
         }
 
-    return (_actual_calls < 20);
+    if (_actual_calls < 20000)
+    {
+        return true;
+    }
+    else
+    {
+        cleanup_task->start();
+        return false;
+    }
 
 }
 int main(int argc, char *argv[])
@@ -184,14 +194,13 @@ int main(int argc, char *argv[])
     InitialRegistrar registering_timer(rps);
     call_scheduler = new CallScheduler();
     stats_displayer = new StatsDisplayer();
-    Cleanup c;
+    cleanup_task = new Cleanup();
 
     stats_displayer->start();
     registering_timer.start();
-    c.start();
     
 
-    create_sip_stacks(350);
+    create_sip_stacks(75);
     re_main(NULL);
     printf("End of loop\n");
     

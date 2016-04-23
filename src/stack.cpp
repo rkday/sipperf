@@ -22,10 +22,9 @@ static void static_connect_handler(const struct sip_msg *msg, void *arg) {
 
 void create_sip_stacks(int how_many)
 {
-	struct sa nsv[16];
-	uint32_t nsc = ARRAY_SIZE(nsv);
-	dns_srv_get(NULL, 0, nsv, &nsc);
-	dnsc_alloc(&dnsc, NULL, nsv, nsc);
+	struct sa nsv;
+    sa_set_str(&nsv, "127.0.0.1", 53);
+	dnsc_alloc(&dnsc, NULL, &nsv, 1);
     for (int i = 0; i < how_many; i++)
     {
         struct sip* sip;
@@ -78,7 +77,6 @@ static void exit_handler(void *arg)
 {
     // All SIP transactions on this stack have finished
     active_sip_stacks--;
-    printf("exit_handler called, number of active SIP stacks is %d\n", active_sip_stacks);
     if (active_sip_stacks == 0)
     {
         // Stop the main loop when all SIP transactions end
