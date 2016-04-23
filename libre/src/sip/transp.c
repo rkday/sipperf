@@ -722,7 +722,10 @@ int sip_transp_send(struct sip_connqent **qentp, struct sip *sip, void *sock,
 	int err;
 
 	if (!sip || !dst || !mb)
+    {
+        printf("Returning EINVAL - sip %p, dst %p, mb %p\n", sip, dst, mb);
 		return EINVAL;
+    }
 
 	switch (tp) {
 

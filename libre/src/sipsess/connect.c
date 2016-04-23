@@ -62,8 +62,11 @@ static void invite_resp_handler(int err, const struct sip_msg *msg, void *arg)
 			err = sess->offerh(&desc, msg, sess->arg);
 		}
 
-		err |= sipsess_ack(sess->sock, sess->dlg, msg->cseq.num,
+	int err2 = sipsess_ack(sess->sock, sess->dlg, msg->cseq.num,
 				   sess->auth, sess->ctype, desc);
+    if (err2)
+        printf("sipsess - sent first ACK for call %.*s, got err %d (%s)\n", msg->callid.l, msg->callid.p, err2, strerror(err2));
+    err |= err2;
 
 		sess->established = true;
 		mem_deref(desc);

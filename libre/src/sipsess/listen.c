@@ -286,6 +286,7 @@ static bool request_handler(const struct sip_msg *msg, void *arg)
 static bool response_handler(const struct sip_msg *msg, void *arg)
 {
 	struct sipsess_sock *sock = arg;
+    //printf("sipsess - Received %d response for call %.*s\n", msg->scode, msg->callid.l, msg->callid.p);
 
 	if (pl_strcmp(&msg->cseq.met, "INVITE"))
 		return false;
@@ -293,7 +294,10 @@ static bool response_handler(const struct sip_msg *msg, void *arg)
 	if (msg->scode < 200 || msg->scode > 299)
 		return false;
 
-	(void)sipsess_ack_again(sock, msg);
+    //printf("sipsess - sending ACK for call %.*s\n", msg->callid.l, msg->callid.p);
+	int err = sipsess_ack_again(sock, msg);
+    if (err)
+        printf("sipsess - resent ACK for call %.*s, got err %d (%s)\n", msg->callid.l, msg->callid.p, err, strerror(err));
 
 	return true;
 }
