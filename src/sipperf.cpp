@@ -29,24 +29,32 @@ static Cleanup* cleanup_task;
 class InitialRegistrar : public RepeatingTimer
 {
 public:
-    InitialRegistrar(uint rps) : RepeatingTimer(10), _registers_per_sec(rps) {};
+    InitialRegistrar(uint rps) :
+        RepeatingTimer(10), 
+        _actual_ues_registered(0),
+        _registers_per_sec(rps) {};
 
     bool act();
     bool everything_registered() { return _actual_ues_registered == ues.size(); }
 private:
-    uint64_t _actual_ues_registered = 0;
-    int _registers_per_sec = 700;
+    uint64_t _actual_ues_registered;
+    int _registers_per_sec;
 };
 
 class CallScheduler : public RepeatingTimer
 {
 public:
-    CallScheduler() : RepeatingTimer(10) {};
+    CallScheduler(int cps, uint64_t max_calls) :
+        RepeatingTimer(10),
+        _actual_calls(0),
+        _calls_per_sec(cps),
+        _max_calls(max_calls) {};
 
     bool act();
 private:
-    uint64_t _actual_calls = 0;
-    int _calls_per_sec = 30;
+    uint64_t _actual_calls;
+    int _calls_per_sec;
+    uint64_t _max_calls;
 };
 
 class Cleanup : public RepeatingTimer
@@ -56,15 +64,6 @@ public:
 
     bool act();
 };
-
-
-static void cleanup()
-{
-   
-
-    mem_debug();
-}
-
 
 bool Cleanup::act()
 {
@@ -94,14 +93,13 @@ bool InitialRegistrar::act()
     if (_actual_ues_registered == ues.size())
     {
         call_scheduler->start();
- //       cleanup();
         return false;
     }
 
     uint64_t expected_ues_registered = seconds_since_start() * _registers_per_sec;
     expected_ues_registered = std::min(expected_ues_registered, ues.size());
     int ues_to_register = expected_ues_registered - _actual_ues_registered;
-    //printf("%d UEs to register\n", ues_to_register);
+
     for (int ii = 0; ii < ues_to_register; ii++)
     {
         SIPUE* a = ues[_actual_ues_registered];
@@ -132,7 +130,7 @@ bool CallScheduler::act()
             }
         }
 
-    if (_actual_calls < 20000)
+    if (_actual_calls < _max_calls)
     {
         return true;
     }
@@ -141,8 +139,8 @@ bool CallScheduler::act()
         cleanup_task->start();
         return false;
     }
-
 }
+
 int main(int argc, char *argv[])
 {
     DocoptArgs args = docopt(argc, argv, /* help */ 1, /* version */ "0.01");
@@ -152,24 +150,13 @@ int main(int argc, char *argv[])
         printf("%s\n", help_message);
         exit(1);
     }
-    int rps;
-    if (args.rps != NULL)
-    {
-        rps = std::atoi(args.rps);
-    } else
-    {
-        printf("Defaulting to 10 RPS\n");
-        rps = 10;
-    }
-
-    //el::Configurations conf("loggingconf.conf");
-    //el::Loggers::configureFromGlobal("loggingconf.conf");
-    LOG(INFO) << "Target is " << args.target;
-
+    int rps = std::atoi(args.rps);
+    int cps = std::atoi(args.cps);
+    int max_calls = std::atoi(args.max_calls);
 
     int err; /* errno return values */
 
-    io::CSVReader<3> in("users.csv");
+    io::CSVReader<3> in(args.users_file);
 
     std::string sip_uri, username, password;
 
@@ -190,7 +177,7 @@ int main(int argc, char *argv[])
     }
 
     InitialRegistrar registering_timer(rps);
-    call_scheduler = new CallScheduler();
+    call_scheduler = new CallScheduler(cps, max_calls);
     stats_displayer = new StatsDisplayer();
     cleanup_task = new Cleanup();
 
@@ -202,7 +189,6 @@ int main(int argc, char *argv[])
     re_main(NULL);
     printf("End of loop\n");
     
-    //free_sip_stacks();
     libre_close();
 
     /* check for memory leaks */

@@ -1,7 +1,7 @@
 SIPPerf
 
 Usage:
-  sipperf --target sip:1.2.3.4 --rps=20
+  sipperf --target sip:1.2.3.4 [options]
   sipperf --help
   sipperf --version
 
@@ -9,4 +9,7 @@ Options:
   -h --help          Show this screen.
   --version          Show version.
   --target=<sipuri>  Outbound proxy for traffic.
-  --rps=<n>          Registrations-per-second rate for initial REGISTERs.
+  --users-file=<file>  Path to a CSV file containing URIs, usernams and passwords for each user [default: ./users.csv]
+  --rps=<n>          Registrations-per-second rate for initial REGISTERs [default: 10].
+  --cps=<n>          Calls-per-second rate after initial registration phase [default: 10].
+  --max-calls=<n>    Maximum calls to make before exiting [default: 100].
