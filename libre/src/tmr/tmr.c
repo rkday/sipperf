@@ -153,9 +153,9 @@ uint64_t tmr_next_timeout(heap_t *tmrh)
 
 int tmr_status(struct re_printf *pf, void *unused)
 {
-    (void)unused;
-    heap_t *tmrh = tmrh_get();
-    return heap_status(tmrh, pf);
+	(void)unused;
+	heap_t *tmrh = tmrh_get();
+	return heap_status(tmrh, pf);
 }
 
 
@@ -180,7 +180,7 @@ void tmr_init(struct tmr *tmr)
 		return;
 
 	memset(tmr, 0, sizeof(*tmr));
-    tmr->heap_idx = -1;
+	tmr->heap_idx = -1;
 }
 
 

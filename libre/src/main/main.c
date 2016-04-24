@@ -960,8 +960,9 @@ int re_main(re_signal_h *signalh)
 		return EALREADY;
 	}
 
-    if (re->tmrl == NULL)
-        re->tmrl = heap_new();
+	if (re->tmrl == NULL)
+		re->tmrl = heap_new();
+
 	err = poll_setup(re);
 	if (err)
 		goto out;
@@ -1238,7 +1239,7 @@ heap_t *tmrh_get(void);
 heap_t *tmrh_get(void)
 {
 	struct re *re = re_get();
-    if (re->tmrl == NULL)
-        re->tmrl = heap_new();
+	if (re->tmrl == NULL)
+		re->tmrl = heap_new();
 	return re->tmrl;
 }
