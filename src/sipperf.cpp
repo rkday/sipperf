@@ -9,7 +9,7 @@
 #include "timer.hpp"
 #include "uamanager.hpp"
 #include "stats_displayer.hpp"
-#include "sipua.hpp"
+#include "useragent.hpp"
 #include "stack.hpp"
 #include "csv.h"
 #include "docopt.h"
@@ -17,7 +17,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-static std::vector<SIPUE*> ues;
+static std::vector<UserAgent*> ues;
 StatsDisplayer* stats_displayer;
 
 class CallScheduler;
@@ -71,7 +71,7 @@ bool Cleanup::act()
     printf("Cleanup running\n");
     if (times == 1)
     {
-        for (SIPUE* a : ues)
+        for (UserAgent* a : ues)
         {
             delete a;
         }
@@ -102,7 +102,7 @@ bool InitialRegistrar::act()
 
     for (int ii = 0; ii < ues_to_register; ii++)
     {
-        SIPUE* a = ues[_actual_ues_registered];
+        UserAgent* a = ues[_actual_ues_registered];
         a->register_ue();
         _actual_ues_registered++;
     }
@@ -117,8 +117,8 @@ bool CallScheduler::act()
         
         for (int ii = 0; ii < calls_to_make; ii++)
         {
-            SIPUE* caller = UAManager::get_instance()->get_ua_free_for_call();
-            SIPUE* callee = UAManager::get_instance()->get_ua_free_for_call();
+            UserAgent* caller = UAManager::get_instance()->get_ua_free_for_call();
+            UserAgent* callee = UAManager::get_instance()->get_ua_free_for_call();
             if (caller && callee) {
                 caller->call(callee->uri());
                 _actual_calls++;
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
 
     while (in.read_row(sip_uri, username, password))
     {
-       SIPUE* a = new SIPUE(args.target,
+       UserAgent* a = new UserAgent(args.target,
                              sip_uri,
                              username,
                              password);

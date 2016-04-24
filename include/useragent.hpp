@@ -5,10 +5,10 @@
 #include <re.h>
 #include <string>
 
-class SIPUE
+class UserAgent
 {
 public:
-    SIPUE(std::string registrar,
+    UserAgent(std::string registrar,
           std::string uri,
           std::string username,
           std::string password):
@@ -19,7 +19,7 @@ public:
         _name(std::to_string(getpid()) + "-ue" + std::to_string(counter++))
     {}
 
-    ~SIPUE();
+    ~UserAgent();
 
     void register_ue();
     void call(std::string uri);

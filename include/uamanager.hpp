@@ -3,7 +3,7 @@
 
 #include <unordered_map>
 
-class SIPUE;
+class UserAgent;
 
 /// Singleton class with a complete view of all UEs, including:
 //
@@ -14,18 +14,18 @@ class SIPUE;
 class UAManager {
 public:
     static UAManager* get_instance() { return &_instance;}
-    void mark_ua_registered(SIPUE* u);
-    void mark_ua_unregistered(SIPUE* u);
+    void mark_ua_registered(UserAgent* u);
+    void mark_ua_unregistered(UserAgent* u);
 
-    SIPUE* get_ua_free_for_call();
-    SIPUE* get_ua_by_name(std::string name);
+    UserAgent* get_ua_free_for_call();
+    UserAgent* get_ua_by_name(std::string name);
 
-    void mark_ua_in_call(SIPUE* u);
-    void mark_ua_not_in_call(SIPUE* u);
+    void mark_ua_in_call(UserAgent* u);
+    void mark_ua_not_in_call(UserAgent* u);
 private:
     UAManager() = default;
-    std::unordered_map<std::string, SIPUE*> free_ues;
-    std::unordered_map<std::string, SIPUE*> all_ues;
+    std::unordered_map<std::string, UserAgent*> free_ues;
+    std::unordered_map<std::string, UserAgent*> all_ues;
     static UAManager _instance;
 };
 

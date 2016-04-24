@@ -1,5 +1,5 @@
 #include "stack.hpp"
-#include "sipua.hpp"
+#include "useragent.hpp"
 #include "uamanager.hpp"
 
 #include <vector>
@@ -15,7 +15,7 @@ static void exit_handler(void *arg);
 
 static void static_connect_handler(const struct sip_msg *msg, void *arg) {
     std::string name(msg->uri.user.p, msg->uri.user.l);
-    SIPUE* ue = UAManager::get_instance()->get_ua_by_name(name);
+    UserAgent* ue = UAManager::get_instance()->get_ua_by_name(name);
     ue->connect_handler(msg);
 }
 

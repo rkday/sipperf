@@ -1,4 +1,4 @@
-#include "sipua.hpp"
+#include "useragent.hpp"
 #include "uamanager.hpp"
 #include "stats_displayer.hpp"
 #include "stack.hpp"
@@ -6,13 +6,13 @@
 
 #define RE_ERRCHECK(X) {int err = X; if (err) {LOG(WARNING) << "libre library call failed - error was" << err << " (" << strerror(err) << ") on line " << __LINE__;}};
 
-uint64_t SIPUE::counter = 0;
+uint64_t UserAgent::counter = 0;
 
-SIPUE::~SIPUE() {
+UserAgent::~UserAgent() {
     mem_deref(reg);
 }
 
-std::string SIPUE::get_cid() {
+std::string UserAgent::get_cid() {
     if (sess == nullptr)
     {
         return "";
@@ -25,7 +25,7 @@ std::string SIPUE::get_cid() {
 // Registration methods.
 //
 
-void SIPUE::register_ue() {
+void UserAgent::register_ue() {
     auto stackinfo = get_sip_stack();
     my_sip = stackinfo.first;
     my_sess_sock = stackinfo.second;
@@ -50,19 +50,19 @@ void SIPUE::register_ue() {
 }
 
 /* called when challenged for credentials */
-int SIPUE::auth_handler(char **user, char **pass, const char *realm) {
+int UserAgent::auth_handler(char **user, char **pass, const char *realm) {
     str_dup(user, _username.c_str());
     str_dup(pass, _password.c_str());
 
     return 0;
 }
 
-int SIPUE::static_auth_handler(char **user, char **pass, const char *realm, void *arg) {
-    return ((SIPUE*)arg)->auth_handler(user, pass, realm);
+int UserAgent::static_auth_handler(char **user, char **pass, const char *realm, void *arg) {
+    return ((UserAgent*)arg)->auth_handler(user, pass, realm);
 }
 
 /* called when register responses are received */
-void SIPUE::register_handler(int err, const struct sip_msg *msg) {
+void UserAgent::register_handler(int err, const struct sip_msg *msg) {
     if (msg && msg->scode == 200) {
         stats_displayer->success_reg++;
         UAManager::get_instance()->mark_ua_registered(this);
@@ -76,15 +76,15 @@ void SIPUE::register_handler(int err, const struct sip_msg *msg) {
     }
 }
 
-void SIPUE::static_register_handler(int err, const struct sip_msg *msg, void *arg) {
-    ((SIPUE*)arg)->register_handler(err, msg);
+void UserAgent::static_register_handler(int err, const struct sip_msg *msg, void *arg) {
+    ((UserAgent*)arg)->register_handler(err, msg);
 }
 
 //
 // Outgoing call methods
 //
 
-void SIPUE::call(std::string uri) {
+void UserAgent::call(std::string uri) {
     stats_displayer->init_call++;
     caller = true;
     // Use the registrar as an outbound proxy
@@ -114,11 +114,11 @@ void SIPUE::call(std::string uri) {
 }
 
 /* called when SIP progress (like 180 Ringing) responses are received */
-void SIPUE::progress_handler(const struct sip_msg *msg) {
+void UserAgent::progress_handler(const struct sip_msg *msg) {
 }
 
-void SIPUE::static_progress_handler(const struct sip_msg *msg, void *arg) {
-    SIPUE* ue = static_cast<SIPUE*>(arg);
+void UserAgent::static_progress_handler(const struct sip_msg *msg, void *arg) {
+    UserAgent* ue = static_cast<UserAgent*>(arg);
     ue->progress_handler(msg);
 }
 
@@ -126,7 +126,7 @@ void SIPUE::static_progress_handler(const struct sip_msg *msg, void *arg) {
 // Incoming call methods
 //
 
-void SIPUE::connect_handler(const struct sip_msg *msg) {
+void UserAgent::connect_handler(const struct sip_msg *msg) {
     caller = false;
     UAManager::get_instance()->mark_ua_in_call(this);
     //sip_treply(NULL, my_sip, msg, 486, "Busy Here");
@@ -152,7 +152,7 @@ void SIPUE::connect_handler(const struct sip_msg *msg) {
 // Methods common to incoming and outgoing calls
 //
 
-void SIPUE::establish_handler(const struct sip_msg *msg) {
+void UserAgent::establish_handler(const struct sip_msg *msg) {
     if (caller) {
         stats_displayer->success_call++;
         struct sip_dialog* dlg = sipsess_dialog(sess);
@@ -166,13 +166,13 @@ void SIPUE::establish_handler(const struct sip_msg *msg) {
 }
 
 /* called when the session is established */
-void SIPUE::static_establish_handler(const struct sip_msg *msg, void *arg) {
-    SIPUE* ue = static_cast<SIPUE*>(arg);
+void UserAgent::static_establish_handler(const struct sip_msg *msg, void *arg) {
+    UserAgent* ue = static_cast<UserAgent*>(arg);
     ue->establish_handler(msg);
 }
 
 /* called when the session fails to connect or is terminated from peer */
-void SIPUE::close_handler(int err, const struct sip_msg *msg) {
+void UserAgent::close_handler(int err, const struct sip_msg *msg) {
     UAManager::get_instance()->mark_ua_not_in_call(this);
     if (err != ECONNRESET) {
         stats_displayer->failed_call++;
@@ -186,27 +186,27 @@ void SIPUE::close_handler(int err, const struct sip_msg *msg) {
     sess = NULL;
 }
 
-void SIPUE::static_close_handler(int err, const struct sip_msg *msg, void *arg) {
-    SIPUE* ue = static_cast<SIPUE*>(arg);
+void UserAgent::static_close_handler(int err, const struct sip_msg *msg, void *arg) {
+    UserAgent* ue = static_cast<UserAgent*>(arg);
     ue->close_handler(err, msg);
 }
 
-void SIPUE::in_dialog_response_handler(int err, const struct sip_msg *msg) {
+void UserAgent::in_dialog_response_handler(int err, const struct sip_msg *msg) {
 
 }
 
-void SIPUE::static_in_dialog_response_handler(int err, const struct sip_msg *msg, void *arg) {
-    SIPUE* ue = static_cast<SIPUE*>(arg);
+void UserAgent::static_in_dialog_response_handler(int err, const struct sip_msg *msg, void *arg) {
+    UserAgent* ue = static_cast<UserAgent*>(arg);
     ue->in_dialog_response_handler(err, msg);
 }
 
 
 
-int SIPUE::answer_handler(const struct sip_msg *msg, void *arg) {
+int UserAgent::answer_handler(const struct sip_msg *msg, void *arg) {
     return 0;
 }
 
-int SIPUE::offer_handler(mbuf** m, const struct sip_msg *msg, void *arg) {
+int UserAgent::offer_handler(mbuf** m, const struct sip_msg *msg, void *arg) {
     return 0;
 }
 
