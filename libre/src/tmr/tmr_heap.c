@@ -82,6 +82,7 @@ static int __parent(const int idx)
 int heap_status(heap_t* tmrh, struct re_printf *pf)
 {
 	uint32_t n;
+	uint32_t ii;
 	int err;
 
 	n = tmrh->count;
@@ -90,7 +91,7 @@ int heap_status(heap_t* tmrh, struct re_printf *pf)
 
 	err = re_hprintf(pf, "Timers (%u):\n", n);
 
-	for (unsigned int ii = 0; ii < n; ii++) {
+	for (ii = 0; ii < n; ii++) {
 		const struct tmr *tmr = tmrh->array[ii];
 
 		err |= re_hprintf(pf, "  %p: th=%p expire=%llums\n",
