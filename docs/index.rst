@@ -20,4 +20,10 @@ It's free software licensed under the `3-clause BSD license <https://github.com/
    self
    performance
    comparison
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Developer Info
+
    architecture
