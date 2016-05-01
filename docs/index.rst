@@ -8,7 +8,7 @@ Welcome to sipperf's documentation!
 
 sipperf is a performance-testing tool for SIP, a VoIP (Voice-over-IP) communication protocol.
 
-It's free software licensed under the `3-clause BSD license <https://github.com/rkday/sipperf/blob/master/LICENSE>`.
+It's free software licensed under the `3-clause BSD license <https://github.com/rkday/sipperf/blob/master/LICENSE>`_.
 
 .. literalinclude:: ../options.docopt
    :language: none
