@@ -6,17 +6,18 @@
 Welcome to sipperf's documentation!
 ===================================
 
-Contents:
+sipperf is a performance-testing tool for SIP, a VoIP (Voice-over-IP) communication protocol.
+
+It's free software licensed under the `3-clause BSD license <https://github.com/rkday/sipperf/blob/master/LICENSE>`.
+
+.. literalinclude:: ../options.docopt
+   :language: none
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
+   self
+   performance
+   comparison
+   architecture
