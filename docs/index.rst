@@ -13,17 +13,15 @@ It's free software licensed under the `3-clause BSD license <https://github.com/
 Quickstart
 ----------
 
-Create a ``users.csv`` file in the format SIPURI,USERNAME,PASSWORD:
+Create a ``users.csv`` file in the format SIPURI,USERNAME,PASSWORD::
 
-::
     sip:1234@example.com,1234@example.com,secret
     sip:1235@example.com,1235@example.com,secret
 
 Then run ``./sipperf --target sip:localhost --rps 5 --cps 1 --max-calls 1``
 
-You should see output similar to the following:
+You should see output similar to the following::
 
-::
     2 successful registers
     0 failed registers
     0 calls initiated
