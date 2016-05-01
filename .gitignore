@@ -34,10 +34,13 @@ CMakeFiles/
 Makefile
 cmake_install.cmake
 libre-prefix/
+compile_commands.json
+install_manifest.txt
 
 # libre build files
 libre/build-x86_64/
 
 tags
+docs/_build/
 
-include/docopt.h
+third_party_includes/docopt.h

@@ -15,3 +15,4 @@ add_executable(sipperf src/sipperf.cpp src/stack.cpp src/useragent.cpp src/timer
 add_dependencies(sipperf Docopt)
 add_dependencies(sipperf re)
 target_link_libraries(sipperf re pthread crypto z resolv)
+install(TARGETS sipperf DESTINATION /usr/bin/)
