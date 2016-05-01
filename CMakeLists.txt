@@ -1,18 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 include_directories(include/ libre/include/)
-link_directories(libre/)
+link_directories(libre_build/)
 
-INCLUDE(ExternalProject)
-
-ExternalProject_Add(
-    libre
-    SOURCE_DIR libre
-    CONFIGURE_COMMAND ""
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND make libre.a
-    BUILD_ALWAYS 1
-    INSTALL_COMMAND ""
-    )
+add_subdirectory(libre/mk libre_build)
 
 add_custom_command(OUTPUT include/docopt.h
     COMMAND docopt.c/docopt_c.py options.docopt > include/docopt.h
