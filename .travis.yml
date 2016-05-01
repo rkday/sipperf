@@ -5,3 +5,4 @@ language: cpp
 script: cmake . && make
 compiler:
   - gcc
+  - clang

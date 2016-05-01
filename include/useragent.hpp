@@ -1,9 +1,9 @@
 #pragma once
 
+#include <string>
 #include <stdint.h>
 #include <unistd.h>
 #include <re.h>
-#include <string>
 
 class UserAgent
 {
