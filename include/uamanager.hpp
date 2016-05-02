@@ -22,6 +22,8 @@ public:
 
     void mark_ua_in_call(UserAgent* u);
     void mark_ua_not_in_call(UserAgent* u);
+
+    void clear();
 private:
     UAManager() = default;
     std::unordered_map<std::string, UserAgent*> free_ues;

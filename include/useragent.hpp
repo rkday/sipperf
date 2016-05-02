@@ -19,9 +19,8 @@ public:
         _name(std::to_string(getpid()) + "-ue" + std::to_string(counter++))
     {}
 
-    ~UserAgent();
-
     void register_ue();
+    void unregister();
     void call(std::string uri);
 
     std::string uri() { return _uri; };

@@ -9,7 +9,7 @@
 
 uint64_t UserAgent::counter = 0;
 
-UserAgent::~UserAgent() {
+void UserAgent::unregister() {
     mem_deref(reg);
 }
 
@@ -185,6 +185,8 @@ void UserAgent::close_handler(int err, const struct sip_msg *msg) {
     }
     mem_deref(sess);
     sess = NULL;
+    mem_deref(sdp);
+    sdp = NULL;
 }
 
 void UserAgent::static_close_handler(int err, const struct sip_msg *msg, void *arg) {

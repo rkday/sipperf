@@ -70,7 +70,7 @@ bool Cleanup::act()
     {
         for (UserAgent* a : ues)
         {
-            delete a;
+            a->unregister();
         }
     } else if (times == 2)
     {
@@ -166,6 +166,8 @@ int main(int argc, char *argv[])
         ues.push_back(a);
     }
 
+    printf("Registering %u user agents against registrar %s\n", ues.size(), args.target);
+
     /* initialize libre state */
     err = libre_init();
     fd_setsize(50000);
@@ -187,6 +189,12 @@ int main(int argc, char *argv[])
     printf("End of loop\n");
     
     libre_close();
+
+    UAManager::get_instance()->clear();
+    for (UserAgent* a : ues)
+    {
+        delete a;
+    }
 
     /* check for memory leaks */
     tmr_debug();

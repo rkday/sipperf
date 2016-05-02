@@ -37,4 +37,8 @@ UserAgent* UAManager::get_ua_free_for_call() {
     return ret;
 }
 
-
+void UAManager::clear()
+{
+    free_ues.clear();
+    all_ues.clear();
+}
