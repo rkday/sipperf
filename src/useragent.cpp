@@ -2,9 +2,10 @@
 #include "uamanager.hpp"
 #include "stats_displayer.hpp"
 #include "stack.hpp"
-#include "easylogging++.h"
+#include "logger.hpp"
+#include <cstring>
 
-#define RE_ERRCHECK(X) {int err = X; if (err) {LOG(WARNING) << "libre library call failed - error was" << err << " (" << strerror(err) << ") on line " << __LINE__;}};
+#define RE_ERRCHECK(X) {int err = X; if (err) {WARNING_LOG("libre library call failed - error was" << err << " (" << strerror(err) << ") on line " << __LINE__;)}};
 
 uint64_t UserAgent::counter = 0;
 
@@ -69,9 +70,9 @@ void UserAgent::register_handler(int err, const struct sip_msg *msg) {
     } else {
         stats_displayer->fail_reg++;
         if (msg) {
-            LOG(WARNING) << "Registration failed for "<< _uri << " with SIP error code " << msg->scode;
+            WARNING_LOG("Registration failed for "<< _uri << " with SIP error code " << msg->scode);
         } else {
-            LOG(WARNING) << "Registration failed for "<< _uri << " with error " << err << " (" << strerror(err) << ")";
+            WARNING_LOG("Registration failed for "<< _uri << " with error " << err << " (" << strerror(err) << ")");
         }
     }
 }
@@ -177,9 +178,9 @@ void UserAgent::close_handler(int err, const struct sip_msg *msg) {
     if (err != ECONNRESET) {
         stats_displayer->failed_call++;
         if (msg) {
-            LOG(WARNING) << "Call " << get_cid() << " ended for "<< _uri << " with SIP error code " << msg->scode;
+            WARNING_LOG("Call " << get_cid() << " ended for "<< _uri << " with SIP error code " << msg->scode);
         } else {
-            LOG(WARNING) << "Call " << get_cid() << " ended for "<< _uri << " with error " << err << " (" << strerror(err) << ")";
+            WARNING_LOG("Call " << get_cid() << " ended for "<< _uri << " with error " << err << " (" << strerror(err) << ")");
         }
     }
     mem_deref(sess);

@@ -13,9 +13,6 @@
 #include "stack.hpp"
 #include "csv.h"
 #include "docopt.h"
-#include "easylogging++.h"
-
-INITIALIZE_EASYLOGGINGPP
 
 static std::vector<UserAgent*> ues;
 StatsDisplayer* stats_displayer;
