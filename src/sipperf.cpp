@@ -73,7 +73,7 @@ bool Cleanup::act()
         {
             a->unregister();
         }
-    } else if (times == 2)
+    } else if (times == 12)
     {
         close_sip_stacks(false);
         free_sip_stacks();
