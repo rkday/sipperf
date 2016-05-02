@@ -11,7 +11,7 @@ add_custom_target(Docopt DEPENDS third_party_includes/docopt.h)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -ggdb3 -Wall -fno-omit-frame-pointer")
 
-add_executable(sipperf src/sipperf.cpp src/stack.cpp src/useragent.cpp src/timer.cpp src/uamanager.cpp)
+add_executable(sipperf src/sipperf.cpp src/stack.cpp src/useragent.cpp src/timer.cpp src/uamanager.cpp src/logger.cpp)
 add_dependencies(sipperf Docopt)
 add_dependencies(sipperf re)
 target_link_libraries(sipperf re pthread crypto z resolv)

@@ -70,9 +70,9 @@ void UserAgent::register_handler(int err, const struct sip_msg *msg) {
     } else {
         stats_displayer->fail_reg++;
         if (msg) {
-            WARNING_LOG("Registration failed for "<< _uri << " with SIP error code " << msg->scode);
+            CALL_FAILURE_LOG("Registration failed for "<< _uri << " with SIP error code " << msg->scode);
         } else {
-            WARNING_LOG("Registration failed for "<< _uri << " with error " << err << " (" << strerror(err) << ")");
+            CALL_FAILURE_LOG("Registration failed for "<< _uri << " with error " << err << " (" << strerror(err) << ")");
         }
     }
 }
@@ -178,9 +178,9 @@ void UserAgent::close_handler(int err, const struct sip_msg *msg) {
     if (err != ECONNRESET) {
         stats_displayer->failed_call++;
         if (msg) {
-            WARNING_LOG("Call " << get_cid() << " ended for "<< _uri << " with SIP error code " << msg->scode);
+            CALL_FAILURE_LOG("Call " << get_cid() << " ended for "<< _uri << " with SIP error code " << msg->scode);
         } else {
-            WARNING_LOG("Call " << get_cid() << " ended for "<< _uri << " with error " << err << " (" << strerror(err) << ")");
+            CALL_FAILURE_LOG("Call " << get_cid() << " ended for "<< _uri << " with error " << err << " (" << strerror(err) << ")");
         }
     }
     mem_deref(sess);

@@ -1,4 +1,7 @@
+#pragma once
+
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 
 class IndividualLog
@@ -50,10 +53,29 @@ public:
     {
         return IndividualLog(std::cout, "Debug");
     }
+
+    IndividualLog call_failure()
+    {
+        return IndividualLog(cflog, "");
+    }
+
+    void set_cflog_file(std::string f)
+    {
+        cflog.open(f, std::ios::out | std::ios::app);
+    }
+
+    ~Logger()
+    {
+        cflog.close();
+    }
+
+    int level = 3;
+    private:
+    std::ofstream cflog;
 };
 
-int level = 3;
-static Logger l;
+extern Logger l;
 
-#define WARNING_LOG(x) if (level > 2) { l.warning() << x; };
-#define DEBUG_LOG(x) if (level > 5) { l.debug() << x; };
+#define WARNING_LOG(x) if (l.level > 2) { l.warning() << x; };
+#define DEBUG_LOG(x) if (l.level > 5) { l.debug() << x; };
+#define CALL_FAILURE_LOG(x) { l.call_failure() << x; };

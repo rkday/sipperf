@@ -11,6 +11,7 @@
 #include "stats_displayer.hpp"
 #include "useragent.hpp"
 #include "stack.hpp"
+#include "logger.hpp"
 #include "csv.h"
 #include "docopt.h"
 
@@ -153,6 +154,7 @@ int main(int argc, char *argv[])
 
     int err; /* errno return values */
 
+    l.set_cflog_file("./cflog.log");
     io::CSVReader<3> in(args.users_file);
 
     std::string sip_uri, username, password;
