@@ -43,4 +43,5 @@ You should see output similar to the following::
    :hidden:
    :caption: Developer Info
 
+   developing
    architecture
